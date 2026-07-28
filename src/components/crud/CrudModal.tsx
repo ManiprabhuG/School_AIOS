@@ -146,6 +146,16 @@ function PersonNameInput({
 
 import { StudentAlphabetSearch } from './StudentAlphabetSearch';
 
+const formatDateForInput = (val: any) => {
+  if (!val) return new Date().toISOString().slice(0, 10);
+  const str = String(val).trim();
+  if (str.includes('T')) return str.split('T')[0];
+  if (str.length >= 10 && str.includes('-')) return str.slice(0, 10);
+  const parsed = new Date(val);
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
+};
+
 export function CrudModal({
   isOpen,
   onClose,
@@ -379,9 +389,19 @@ export function CrudModal({
                         />
                       </div>
                     </div>
+                  ) : field.type === 'date' ? (
+                    <input
+                      type="date"
+                      readOnly={isReadOnly}
+                      value={formatDateForInput(formData[field.name])}
+                      onChange={(e) => handleChange(field.name, e.target.value)}
+                      className={`w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs ${
+                        isReadOnly ? 'bg-slate-100 dark:bg-slate-800/60 cursor-not-allowed text-slate-500' : 'bg-slate-50 dark:bg-slate-800'
+                      }`}
+                    />
                   ) : (
                     <input
-                      type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                      type={field.type === 'number' ? 'number' : 'text'}
                       readOnly={isReadOnly}
                       value={formData[field.name] ?? ''}
                       onChange={(e) =>
