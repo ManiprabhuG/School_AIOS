@@ -46,9 +46,9 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      user: seededDefaultAdmin,
-      token: 'jwt-simulated-token-admin-session',
-      isAuthenticated: true,
+      user: null,
+      token: null,
+      isAuthenticated: false,
       activeRole: 'Super Admin',
       users: initialUsersList,
       loginHistory: [
