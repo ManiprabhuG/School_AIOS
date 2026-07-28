@@ -356,3 +356,20 @@ model ClassEntity {
 
   @@map("classes")
 }
+
+model AttendanceRecord {
+  id         String   @id @default(uuid())
+  date       String
+  entityId   String
+  entityType String   // Student | Staff
+  name       String
+  className  String?
+  status     String   // Present | Absent | Late | Half Day | Leave
+  timeIn     String?
+  timeOut    String?
+  remarks    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("attendance_records")
+}

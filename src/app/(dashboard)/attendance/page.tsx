@@ -17,34 +17,45 @@ export default function AttendancePage() {
     auditLogs,
   } = useCrudStore();
 
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const stdAtt: AttendanceRecord[] = students.map((s, idx) => ({
-      id: `att-std-${s.id}`,
-      date: today,
-      entityId: s.id,
-      entityType: 'Student',
-      name: s.name,
-      className: `${s.className}-${s.section}`,
-      status: idx % 4 === 0 ? 'Absent' : idx % 5 === 0 ? 'Late' : 'Present',
-      timeIn: '08:00 AM',
-      timeOut: '02:30 PM',
-      remarks: idx % 4 === 0 ? 'Parent informed via SMS' : 'On time',
-    }));
-    const stfAtt: AttendanceRecord[] = staff.map((st, idx) => ({
-      id: `att-stf-${st.id}`,
-      date: today,
-      entityId: st.id,
-      entityType: 'Staff',
-      name: st.name,
-      className: st.department,
-      status: idx === 1 ? 'Leave' : 'Present',
-      timeIn: '07:45 AM',
-      timeOut: '04:00 PM',
-      remarks: idx === 1 ? 'Casual Leave Approved' : 'Present in school campus',
-    }));
-    return [...stdAtt, ...stfAtt];
-  });
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+
+  React.useEffect(() => {
+    fetch('/api/attendance')
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setAttendanceRecords(res.data);
+        } else {
+          const today = new Date().toISOString().split('T')[0];
+          const stdAtt: AttendanceRecord[] = students.map((s, idx) => ({
+            id: `att-std-${s.id}`,
+            date: today,
+            entityId: s.id,
+            entityType: 'Student',
+            name: s.name,
+            className: `${s.className}-${s.section}`,
+            status: idx % 4 === 0 ? 'Absent' : idx % 5 === 0 ? 'Late' : 'Present',
+            timeIn: '08:00 AM',
+            timeOut: '02:30 PM',
+            remarks: idx % 4 === 0 ? 'Parent informed via SMS' : 'On time',
+          }));
+          const stfAtt: AttendanceRecord[] = staff.map((st, idx) => ({
+            id: `att-stf-${st.id}`,
+            date: today,
+            entityId: st.id,
+            entityType: 'Staff',
+            name: st.name,
+            className: st.department,
+            status: idx === 1 ? 'Leave' : 'Present',
+            timeIn: '07:45 AM',
+            timeOut: '04:00 PM',
+            remarks: idx === 1 ? 'Casual Leave Approved' : 'Present in school campus',
+          }));
+          setAttendanceRecords([...stdAtt, ...stfAtt]);
+        }
+      })
+      .catch((err) => console.error('Failed to load attendance from DB:', err));
+  }, [students, staff]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingAtt, setEditingAtt] = useState<AttendanceRecord | null>(null);
@@ -241,11 +252,21 @@ export default function AttendancePage() {
     }
   };
 
-  const handleSaveAttendance = (data: Record<string, any>, saveAndNew?: boolean) => {
+  const handleSaveAttendance = async (data: Record<string, any>, saveAndNew?: boolean) => {
     if (editingAtt) {
+      const updatedItem = { ...editingAtt, ...data };
       setAttendanceRecords((prev) =>
-        prev.map((item) => (item.id === editingAtt.id ? { ...item, ...data } : item))
+        prev.map((item) => (item.id === editingAtt.id ? updatedItem : item))
       );
+      try {
+        await fetch('/api/attendance', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingAtt.id, ...data }),
+        });
+      } catch (err) {
+        console.error('Failed to update attendance in DB:', err);
+      }
       setEditingAtt(null);
     } else {
       const newAtt: AttendanceRecord = {
@@ -261,6 +282,21 @@ export default function AttendancePage() {
         remarks: data.remarks || '',
       };
       setAttendanceRecords([newAtt, ...attendanceRecords]);
+      try {
+        const res = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newAtt),
+        });
+        const resJson = await res.json();
+        if (resJson.success && resJson.data) {
+          setAttendanceRecords((prev) =>
+            prev.map((item) => (item.id === newAtt.id ? { ...item, ...resJson.data } : item))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to save attendance to DB:', err);
+      }
       if (!saveAndNew) setIsAddModalOpen(false);
     }
   };
@@ -359,8 +395,14 @@ export default function AttendancePage() {
           title="Permanently Delete Attendance Entry"
           message={`Are you sure you want to permanently delete attendance record for ${confirmDelete.name}?`}
           confirmLabel="Permanent Delete"
-          onConfirm={() => {
-            setAttendanceRecords((prev) => prev.filter((item) => item.id !== confirmDelete.id));
+          onConfirm={async () => {
+            const deleteId = confirmDelete.id;
+            setAttendanceRecords((prev) => prev.filter((item) => item.id !== deleteId));
+            try {
+              await fetch(`/api/attendance?id=${deleteId}`, { method: 'DELETE' });
+            } catch (err) {
+              console.error('Failed to delete attendance from DB:', err);
+            }
           }}
         />
       )}
