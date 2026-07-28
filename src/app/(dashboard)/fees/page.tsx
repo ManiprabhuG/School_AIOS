@@ -50,6 +50,15 @@ export default function FeesPage() {
         }
       })
       .catch((err) => console.error('Failed to load fees from DB:', err));
+
+    fetch('/api/fee-structures')
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          useCrudStore.setState({ feeStructures: res.data });
+        }
+      })
+      .catch((err) => console.error('Failed to load fee structures from DB:', err));
   }, []);
 
   const studentOptions = students.map((s) => ({ label: `${s.name} (${s.className}-${s.section})`, value: s.name }));
