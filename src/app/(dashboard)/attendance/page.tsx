@@ -33,7 +33,8 @@ export default function AttendancePage() {
             entityId: s.id,
             entityType: 'Student',
             name: s.name,
-            className: `${s.className}-${s.section}`,
+            className: s.className || '10th',
+            section: s.section || 'A',
             status: idx % 4 === 0 ? 'Absent' : idx % 5 === 0 ? 'Late' : 'Present',
             remarks: idx % 4 === 0 ? 'Parent informed via SMS' : 'Present in class',
           }));
@@ -46,6 +47,7 @@ export default function AttendancePage() {
             department: st.department || 'Mathematics',
             name: st.name,
             className: st.department,
+            section: 'A',
             status: idx === 1 ? 'Leave' : 'Present',
             remarks: idx === 1 ? 'Casual Leave Approved' : 'Present in school campus',
           }));
@@ -62,25 +64,6 @@ export default function AttendancePage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   const [currentEntityTypeFilter, setCurrentEntityTypeFilter] = useState<string>('Student');
-  const [selectedClassFilter, setSelectedClassFilter] = useState<string>('All');
-  const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('All');
-
-  const classSectionsMap: Record<string, string[]> = {
-    LKG: ['A', 'B', 'C'],
-    UKG: ['A', 'B', 'C'],
-    '1st': ['A', 'B', 'C', 'D'],
-    '2nd': ['A', 'B', 'C', 'D'],
-    '3rd': ['A', 'B', 'C', 'D', 'E'],
-    '4th': ['A', 'B', 'C', 'D', 'E'],
-    '5th': ['A', 'B', 'C', 'D', 'E', 'F'],
-    '6th': ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
-    '7th': ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
-    '8th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-    '9th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-    '10th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-    '11th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
-    '12th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
-  };
 
   const attendanceFields: FieldConfig[] = [
     {
@@ -88,6 +71,7 @@ export default function AttendancePage() {
       label: 'Attendance Date *',
       type: 'date',
       defaultValue: new Date().toISOString().split('T')[0],
+      colSpan: 2,
     },
     {
       name: 'entityType',
@@ -122,7 +106,6 @@ export default function AttendancePage() {
         { label: 'Physical Education & Sports', value: 'Physical Education & Sports' },
         { label: 'Arts & Music', value: 'Arts & Music' },
       ],
-      // Department is ONLY shown when Person Category is Staff AND Staff Type is Teaching!
       hidden: (formData) => formData.entityType !== 'Staff' || formData.staffType !== 'Teaching',
     },
     {
@@ -130,14 +113,22 @@ export default function AttendancePage() {
       label: 'Full Name *',
       type: 'text',
       placeholder: 'Click cursor to select or type name...',
+      colSpan: 2,
     },
     {
       name: 'className',
-      label: 'Class & Section (Students)',
+      label: 'Class (Students)',
       type: 'select',
-      options: ['LKG-A', 'UKG-A', '1st-A', '2nd-A', '3rd-A', '4th-A', '5th-A', '6th-A', '7th-A', '8th-A', '9th-A', '10th-A', '11th-A', '12th-A'].map(
+      options: ['LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'].map(
         (c) => ({ label: `Class ${c}`, value: c })
       ),
+      hidden: (formData) => formData.entityType === 'Staff',
+    },
+    {
+      name: 'section',
+      label: 'Section (Students)',
+      type: 'select',
+      options: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].map((s) => ({ label: `Section ${s}`, value: s })),
       hidden: (formData) => formData.entityType === 'Staff',
     },
     {
@@ -185,7 +176,7 @@ export default function AttendancePage() {
     },
     {
       key: 'className',
-      header: 'Class / Staff Details',
+      header: 'Class & Section / Department',
       sortable: true,
       render: (a) => (
         <div className="text-xs">
@@ -195,7 +186,9 @@ export default function AttendancePage() {
               {a.department && <span className="text-slate-500 block text-[11px]">Dept: {a.department}</span>}
             </div>
           ) : (
-            <span className="font-semibold text-slate-700 dark:text-slate-300">{a.className}</span>
+            <span className="font-bold text-slate-800 dark:text-slate-200">
+              Class {a.className || '10th'} - {a.section || 'A'}
+            </span>
           )}
         </div>
       ),
@@ -222,13 +215,6 @@ export default function AttendancePage() {
     },
     { key: 'remarks', header: 'Remarks' },
   ];
-
-  const getDynamicSections = (cls: string) => {
-    if (cls && cls !== 'All' && classSectionsMap[cls]) {
-      return classSectionsMap[cls];
-    }
-    return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  };
 
   const dynamicFilterOptions = useMemo(() => {
     const personTypeFilterOption = {
@@ -276,51 +262,24 @@ export default function AttendancePage() {
     return [
       personTypeFilterOption,
       {
-        key: 'classOnly',
+        key: 'className',
         label: 'Class Filter',
         options: ['LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'].map(
           (c) => ({ label: `Class ${c}`, value: c })
         ),
       },
       {
-        key: 'sectionOnly',
+        key: 'section',
         label: 'Section Filter',
-        options: getDynamicSections(selectedClassFilter).map((s) => ({ label: `Section ${s}`, value: s })),
+        options: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].map((s) => ({ label: `Section ${s}`, value: s })),
       },
       statusFilterOption,
     ];
-  }, [currentEntityTypeFilter, selectedClassFilter]);
-
-  // Filtered records considering dependent filters
-  const filteredAttendanceRecords = useMemo(() => {
-    return attendanceRecords.filter((rec) => {
-      if (currentEntityTypeFilter && currentEntityTypeFilter !== 'All') {
-        if (rec.entityType !== currentEntityTypeFilter) return false;
-      }
-
-      if (currentEntityTypeFilter === 'Student') {
-        const clsName = rec.className || '';
-        if (selectedClassFilter && selectedClassFilter !== 'All') {
-          if (!clsName.toLowerCase().includes(selectedClassFilter.toLowerCase())) return false;
-        }
-        if (selectedSectionFilter && selectedSectionFilter !== 'All') {
-          if (!clsName.toLowerCase().includes(selectedSectionFilter.toLowerCase())) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [attendanceRecords, currentEntityTypeFilter, selectedClassFilter, selectedSectionFilter]);
+  }, [currentEntityTypeFilter]);
 
   const handleFilterChange = (filters: Record<string, string>) => {
     if (filters.entityType !== undefined && filters.entityType !== currentEntityTypeFilter) {
       setCurrentEntityTypeFilter(filters.entityType || 'Student');
-    }
-    if (filters.classOnly !== undefined) {
-      setSelectedClassFilter(filters.classOnly || 'All');
-    }
-    if (filters.sectionOnly !== undefined) {
-      setSelectedSectionFilter(filters.sectionOnly || 'All');
     }
   };
 
@@ -349,11 +308,30 @@ export default function AttendancePage() {
         staffType: data.staffType || undefined,
         department: data.department || undefined,
         name: data.name,
-        className: data.className || '',
+        className: data.className || '10th',
+        section: data.section || 'A',
         status: data.status || 'Present',
         remarks: data.remarks || '',
       };
       setAttendanceRecords([newAtt, ...attendanceRecords]);
+      try {
+        const res = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newAtt),
+        });
+        const resJson = await res.json();
+        if (resJson.success && resJson.data) {
+          setAttendanceRecords((prev) =>
+            prev.map((item) => (item.id === newAtt.id ? { ...item, ...resJson.data } : item))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to save attendance to DB:', err);
+      }
+      if (!saveAndNew) setIsAddModalOpen(false);
+    }
+  };
       try {
         const res = await fetch('/api/attendance', {
           method: 'POST',

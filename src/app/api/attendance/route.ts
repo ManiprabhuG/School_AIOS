@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       entityType: String(body.entityType || 'Student'),
       name: String(body.name || 'User'),
       className: body.className ? String(body.className) : null,
+      section: body.section ? String(body.section) : null,
       staffType: body.staffType ? String(body.staffType) : null,
       department: body.department ? String(body.department) : null,
       status: String(body.status || 'Present'),
@@ -57,7 +58,7 @@ export async function PUT(request: Request) {
     const { id, ...updates } = body;
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
-    const allowedFields = ['date', 'entityId', 'entityType', 'name', 'className', 'staffType', 'department', 'status', 'timeIn', 'timeOut', 'remarks'];
+    const allowedFields = ['date', 'entityId', 'entityType', 'name', 'className', 'section', 'staffType', 'department', 'status', 'timeIn', 'timeOut', 'remarks'];
     const dbUpdates: any = {};
     for (const key of allowedFields) {
       if (updates[key] !== undefined) {

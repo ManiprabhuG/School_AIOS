@@ -114,6 +114,7 @@ export interface AttendanceRecord extends BaseAuditEntity {
   entityType: 'Student' | 'Staff';
   name: string;
   className?: string;
+  section?: string;
   staffType?: 'Teaching' | 'Non-Teaching';
   department?: string;
   status: 'Present' | 'Absent' | 'Late' | 'Half Day' | 'Leave';
