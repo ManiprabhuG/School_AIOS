@@ -340,7 +340,7 @@ export default function AttendancePage() {
         subtitle="Daily Attendance Marking, Late Check-Ins, Leave Submissions & Muster Roll"
         icon={<CalendarCheck className="w-6 h-6" />}
         columns={columns}
-        data={filteredAttendanceRecords}
+        data={attendanceRecords}
         addLabel="Mark Attendance Entry"
         exportFilename="ABS_Attendance_Register"
         filterOptions={dynamicFilterOptions}
