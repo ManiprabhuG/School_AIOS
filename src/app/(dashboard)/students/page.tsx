@@ -36,7 +36,7 @@ export default function StudentManagementPage() {
     fetch('/api/students')
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
           useCrudStore.setState({ students: res.data });
         }
       })

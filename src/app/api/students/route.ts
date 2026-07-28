@@ -12,7 +12,7 @@ export async function GET() {
       });
       const mappedStudents = dbStudents.map((s) => ({
         ...s,
-        status: s.status === 'ACTIVE' ? 'Active' : s.status === 'INACTIVE' ? 'Transferred' : s.status,
+        status: s.status === 'ACTIVE' || s.status === 'Active' ? 'Active' : s.status === 'INACTIVE' || s.status === 'Transferred' ? 'Transferred' : s.status || 'Active',
       }));
       return NextResponse.json({ success: true, data: mappedStudents });
     }

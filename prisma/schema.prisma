@@ -40,7 +40,7 @@ model User {
   role           Role      @default(ADMIN)
   avatar         String?
   phone          String?
-  status         Status    @default(ACTIVE)
+  status         String    @default("ACTIVE")
   lastLogin      DateTime?
   passwordHash   String
   failedAttempts Int       @default(0)
@@ -87,7 +87,7 @@ model Student {
   attendancePercent Float    @default(0)
   medicalInfo       String?
   joiningDate       String
-  status            Status   @default(ACTIVE)
+  status            String   @default("ACTIVE")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -113,7 +113,7 @@ model Staff {
   photo          String?
   assignedClass  String?
   subjectSpecial String?
-  status         Status   @default(ACTIVE)
+  status         String   @default("ACTIVE")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -132,7 +132,7 @@ model Supplier {
   suppliedItems  String?  // Comma separated or JSON string
   totalPurchases Float    @default(0)
   duePayment     Float    @default(0)
-  status         Status   @default(ACTIVE)
+  status         String   @default("ACTIVE")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -205,7 +205,7 @@ model BusRoute {
   capacity     Int      @default(40)
   assignedCount Int     @default(0)
   monthlyFee   Float
-  status       Status   @default(ACTIVE)
+  status       String   @default("ACTIVE")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -221,7 +221,7 @@ model Announcement {
   postedBy    String
   date        String
   isImportant Boolean  @default(false)
-  status      Status   @default(ACTIVE)
+  status      String   @default("ACTIVE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
