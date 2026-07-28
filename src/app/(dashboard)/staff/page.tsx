@@ -39,8 +39,12 @@ export default function StaffManagementPage() {
     fetch('/api/staff')
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          useCrudStore.setState({ staff: res.data });
+        if (res.success && Array.isArray(res.data)) {
+          useCrudStore.setState((state) => {
+            const dbIds = new Set(res.data.map((d: any) => d.id));
+            const localOnly = state.staff.filter((s) => !dbIds.has(s.id));
+            return { staff: res.data.length > 0 ? [...res.data, ...localOnly] : state.staff };
+          });
         }
       })
       .catch((err) => console.error('Failed to load staff from DB:', err));

@@ -36,8 +36,12 @@ export default function StudentManagementPage() {
     fetch('/api/students')
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          useCrudStore.setState({ students: res.data });
+        if (res.success && Array.isArray(res.data)) {
+          useCrudStore.setState((state) => {
+            const dbIds = new Set(res.data.map((d: any) => d.id));
+            const localOnly = state.students.filter((s) => !dbIds.has(s.id));
+            return { students: res.data.length > 0 ? [...res.data, ...localOnly] : state.students };
+          });
         }
       })
       .catch((err) => console.error('Failed to load students from DB:', err));

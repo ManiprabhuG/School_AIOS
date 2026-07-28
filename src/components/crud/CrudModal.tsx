@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Save, Plus, Check, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { X, Save, Plus, Check, Image as ImageIcon, ChevronDown } from 'lucide-react';
+import { useCrudStore } from '@/store/crud-store';
 
 export interface FieldConfig {
   name: string;
@@ -26,6 +27,121 @@ interface CrudModalProps {
   onSave: (data: Record<string, any>, saveAndNew?: boolean) => void;
   onAddSectionClick?: () => void;
   onFormChange?: (formData: Record<string, any>, changedField: string, newValue: any) => Record<string, any> | void;
+}
+
+function PersonNameInput({
+  field,
+  value,
+  formData,
+  onChange,
+  onAutoFill,
+}: {
+  field: FieldConfig;
+  value: string;
+  formData: Record<string, any>;
+  onChange: (val: string) => void;
+  onAutoFill: (person: any) => void;
+}) {
+  const { students, staff } = useCrudStore();
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const category = (formData.entityType || formData.personType || formData.customerType || '').toLowerCase();
+  const isStaffCategory = category === 'staff';
+  const list = isStaffCategory ? staff : students;
+
+  const filtered = useMemo(() => {
+    const q = (value || '').trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((item: any) => {
+      const name = (item.name || `${item.firstName || ''} ${item.lastName || ''}`).toLowerCase();
+      const idStr = (item.admissionNo || item.employeeId || item.empId || item.rollNo || '').toLowerCase();
+      const clsStr = (item.className || item.department || '').toLowerCase();
+      return name.includes(q) || idStr.includes(q) || clsStr.includes(q);
+    });
+  }, [list, value]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <div className="relative flex items-center">
+        <input
+          type="text"
+          value={value ?? ''}
+          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setIsOpen(true);
+          }}
+          placeholder={field.placeholder || `Click cursor to select ${isStaffCategory ? 'Staff' : 'Student'} name or type...`}
+          className="w-full p-2.5 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"
+        />
+        <div className="absolute right-2.5 pointer-events-none text-slate-400">
+          <ChevronDown className="w-4 h-4" />
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 max-h-56 overflow-y-auto space-y-1 animate-in fade-in text-xs">
+          <div className="px-2 py-1 text-[10px] font-extrabold text-blue-600 dark:text-blue-400 border-b border-slate-100 dark:border-slate-800 flex justify-between">
+            <span>Select {isStaffCategory ? 'Staff Member' : 'Student'} ({filtered.length})</span>
+            <span>Click to auto-fill</span>
+          </div>
+
+          {filtered.length > 0 ? (
+            filtered.map((person: any) => {
+              const fullName = person.name || `${person.firstName || ''} ${person.lastName || ''}`.trim();
+              return (
+                <div
+                  key={person.id}
+                  onMouseDown={() => {
+                    onChange(fullName);
+                    onAutoFill(person);
+                    setIsOpen(false);
+                  }}
+                  className="p-2 rounded-xl border border-slate-100 dark:border-slate-800/60 hover:border-blue-500 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer flex items-center justify-between gap-2 transition-all group"
+                >
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <img
+                      src={person.photo || person.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                      alt={fullName}
+                      className="w-7 h-7 rounded-lg object-cover shrink-0"
+                    />
+                    <div className="truncate">
+                      <span className="font-extrabold text-slate-900 dark:text-white block truncate group-hover:text-blue-600">
+                        {fullName}
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">
+                        {isStaffCategory
+                          ? `ID: ${person.employeeId || person.empId || 'EMP'} | Dept: ${person.department || 'Staff'}`
+                          : `Adm: ${person.admissionNo || 'ADM'} | Class: ${person.className || '10th'}-${person.section || 'A'}`}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="shrink-0 px-2 py-0.5 rounded-md bg-blue-600 text-white font-extrabold text-[10px]">
+                    Auto-fill
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-3 text-center text-slate-400 text-xs">
+              No matching {isStaffCategory ? 'staff' : 'students'} found.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 import { StudentAlphabetSearch } from './StudentAlphabetSearch';
@@ -181,19 +297,6 @@ export function CrudModal({
 
         {/* Modal Form Body */}
         <form onSubmit={(e) => handleSubmit(e, false)} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-          {hasStudentField && (
-            <div className="p-3 bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-2xl space-y-2">
-              <label className="font-extrabold text-blue-950 dark:text-blue-200 text-xs block">
-                🔍 Student Quick Search & A-Z Alphabet Filter (Auto-fill Form Details)
-              </label>
-              <StudentAlphabetSearch
-                onSelectStudent={handleStudentAutoFill}
-                selectedStudentId={formData.studentId || formData.entityId}
-                placeholder="Type student name or click A-Z letter to filter and auto-fill form..."
-              />
-            </div>
-          )}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {fields.map((field) => {
               const isHidden = typeof field.hidden === 'function' ? field.hidden(formData) : Boolean(field.hidden);
@@ -201,6 +304,7 @@ export function CrudModal({
 
               const isReadOnly = field.readOnly || field.name === 'id' || field.name.toLowerCase().endsWith('id') || field.name.toLowerCase().endsWith('no') || field.name.toLowerCase().endsWith('number') || field.name.toLowerCase().endsWith('code');
               const colSpanClass = field.colSpan === 2 ? 'sm:col-span-2' : '';
+              const isNameField = !isReadOnly && (field.name === 'name' || field.name === 'studentName' || field.name === 'customerName' || field.name === 'staffName' || field.name === 'postedBy' || field.name === 'driverName');
               
               return (
                 <div key={field.name} className={`space-y-1.5 ${colSpanClass}`}>
@@ -208,7 +312,15 @@ export function CrudModal({
                     {field.label}
                   </label>
 
-                  {field.type === 'select' ? (
+                  {isNameField ? (
+                    <PersonNameInput
+                      field={field}
+                      value={formData[field.name]}
+                      formData={formData}
+                      onChange={(v) => handleChange(field.name, v)}
+                      onAutoFill={handleStudentAutoFill}
+                    />
+                  ) : field.type === 'select' ? (
                     <div className="flex items-center gap-2">
                       <select
                         value={formData[field.name] ?? ''}
