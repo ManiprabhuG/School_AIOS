@@ -28,6 +28,8 @@ interface CrudModalProps {
   onFormChange?: (formData: Record<string, any>, changedField: string, newValue: any) => Record<string, any> | void;
 }
 
+import { StudentAlphabetSearch } from './StudentAlphabetSearch';
+
 export function CrudModal({
   isOpen,
   onClose,
@@ -40,6 +42,42 @@ export function CrudModal({
 }: CrudModalProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const isEdit = Boolean(initialData);
+
+  const hasStudentField = fields.some(
+    (f) =>
+      f.name === 'studentName' ||
+      f.name === 'studentId' ||
+      f.name === 'customerName' ||
+      (f.name === 'name' && (title.toLowerCase().includes('attendance') || title.toLowerCase().includes('fee') || title.toLowerCase().includes('mark') || title.toLowerCase().includes('sale') || title.toLowerCase().includes('bus') || title.toLowerCase().includes('entry')))
+  );
+
+  const handleStudentAutoFill = (student: any) => {
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        studentName: student.name,
+        name: student.name,
+        customerName: student.name,
+        studentId: student.id,
+        entityId: student.id,
+        admissionNo: student.admissionNo,
+        rollNo: student.rollNo,
+        className: student.className,
+        section: student.section,
+        course: student.course || '',
+        parentPhone: student.parentPhone,
+        parentEmail: student.parentEmail || '',
+        dueFees: student.dueFees || 0,
+        amount: prev.amount || student.dueFees || 0,
+        address: student.address,
+      };
+      if (onFormChange) {
+        const overrides = onFormChange(updated, 'studentName', student.name);
+        if (overrides) Object.assign(updated, overrides);
+      }
+      return updated;
+    });
+  };
 
   const generateAutoId = (fieldName: string) => {
     const timestamp = Date.now().toString().slice(-4);
@@ -143,6 +181,19 @@ export function CrudModal({
 
         {/* Modal Form Body */}
         <form onSubmit={(e) => handleSubmit(e, false)} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+          {hasStudentField && (
+            <div className="p-3 bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-2xl space-y-2">
+              <label className="font-extrabold text-blue-950 dark:text-blue-200 text-xs block">
+                🔍 Student Quick Search & A-Z Alphabet Filter (Auto-fill Form Details)
+              </label>
+              <StudentAlphabetSearch
+                onSelectStudent={handleStudentAutoFill}
+                selectedStudentId={formData.studentId || formData.entityId}
+                placeholder="Type student name or click A-Z letter to filter and auto-fill form..."
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {fields.map((field) => {
               const isHidden = typeof field.hidden === 'function' ? field.hidden(formData) : Boolean(field.hidden);

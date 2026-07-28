@@ -373,3 +373,24 @@ model AttendanceRecord {
 
   @@map("attendance_records")
 }
+
+model SystemSetting {
+  id                       String   @id @default("company_settings")
+  schoolName               String   @default("ABS MATRICULATION HIGHER SECONDARY SCHOOL")
+  schoolLogo               String?  @db.LongText
+  address                  String   @default("124, Education Boulevard, Knowledge City, Chennai, Tamil Nadu")
+  pincode                  String   @default("600001")
+  gstin                    String   @default("33AAAAA0000A1Z5")
+  phone                    String   @default("+91 44 2800 1122 / +91 98765 43210")
+  email                    String   @default("info@absschool.edu.in")
+  website                  String   @default("www.absschool.edu.in")
+  academicYear             String   @default("2025 - 2026")
+  currency                 String   @default("INR (₹)")
+  timeZone                 String   @default("Asia/Kolkata (IST)")
+  affiliationNo            String   @default("AFF-TN-2026-99")
+  authorizedSignatoryTitle String   @default("Authorized Finance Officer & Principal")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@map("system_settings")
+}

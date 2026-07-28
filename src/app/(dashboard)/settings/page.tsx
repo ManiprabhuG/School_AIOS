@@ -26,6 +26,18 @@ export default function SettingsPage() {
     authorizedSignatoryTitle: companyProfile?.authorizedSignatoryTitle || 'Authorized Finance Officer & Principal',
   });
 
+  React.useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && res.data) {
+          setProfileForm(res.data);
+          updateCompanyProfile(res.data);
+        }
+      })
+      .catch((err) => console.error('Failed to load cloud database settings:', err));
+  }, []);
+
   const handleInputChange = (field: keyof CompanyProfile, value: string) => {
     setProfileForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -58,8 +70,17 @@ export default function SettingsPage() {
     setProfileForm((prev) => ({ ...prev, schoolLogo: '' }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     updateCompanyProfile(profileForm);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileForm),
+      });
+    } catch (err) {
+      console.error('Failed to save settings to cloud database:', err);
+    }
     setSaved(true);
     logAudit({
       userId: 'usr-1',
@@ -68,7 +89,7 @@ export default function SettingsPage() {
       action: 'UPDATE',
       module: 'settings',
       recordId: 'company-profile-settings',
-      details: `Updated Company/School profile: ${profileForm.schoolName}, GSTIN: ${profileForm.gstin}, Pincode: ${profileForm.pincode}`,
+      details: `Updated Company/School profile in Cloud DB: ${profileForm.schoolName}, GSTIN: ${profileForm.gstin}, Pincode: ${profileForm.pincode}`,
     });
     setTimeout(() => setSaved(false), 2000);
   };
