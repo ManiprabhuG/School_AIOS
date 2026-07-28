@@ -38,10 +38,10 @@ export default function Header() {
 
         <button
           onClick={() => setSearchOpen(true)}
-          className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-sm w-48 md:w-80 transition-all border border-slate-200/60 dark:border-slate-700/60"
+          className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-xs sm:text-sm w-36 sm:w-48 md:w-80 transition-all border border-slate-200/60 dark:border-slate-700/60"
         >
-          <Search className="w-4 h-4 text-slate-400" />
-          <span className="truncate">Search students, staff, fees...</span>
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <span className="truncate">Search ERP...</span>
           <kbd className="hidden md:inline-block ml-auto text-[10px] bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 font-mono text-slate-400">
             Ctrl K
           </kbd>
@@ -49,44 +49,44 @@ export default function Header() {
       </div>
 
       {/* Right section: Theme Selector, Notifications, User Profile */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         {/* Theme Selector */}
-        <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+        <div className="hidden xs:flex items-center p-0.5 sm:p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
           <button
             onClick={() => setTheme('light')}
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1 sm:p-1.5 rounded-lg transition-all ${
               theme === 'light' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
             title="Light Theme"
           >
-            <Sun className="w-4 h-4" />
+            <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
           <button
             onClick={() => setTheme('dark')}
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1 sm:p-1.5 rounded-lg transition-all ${
               theme === 'dark' ? 'bg-white dark:bg-slate-700 text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
             title="Dark Theme"
           >
-            <Moon className="w-4 h-4" />
+            <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
           <button
             onClick={() => setTheme('blue')}
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1 sm:p-1.5 rounded-lg transition-all ${
               theme === 'blue' ? 'bg-white dark:bg-slate-700 text-sky-500 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
             title="Corporate Blue Theme"
           >
-            <Palette className="w-4 h-4" />
+            <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
           <button
             onClick={() => setTheme('auto')}
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1 sm:p-1.5 rounded-lg transition-all ${
               theme === 'auto' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
             title="Auto Theme"
           >
-            <Laptop className="w-4 h-4" />
+            <Laptop className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>
 

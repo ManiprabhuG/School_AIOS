@@ -1,14 +1,55 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import GlobalSearchModal from '@/components/layout/GlobalSearchModal';
 import NotificationDrawer from '@/components/layout/NotificationDrawer';
-import { useUIStore } from '@/store/ui-store';
+import { useUIStore, applyThemeToDOM } from '@/store/ui-store';
+import { useAuthStore } from '@/store/auth-store';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { sidebarOpen } = useUIStore();
+  const { sidebarOpen, theme } = useUIStore();
+  const { isAuthenticated } = useAuthStore();
+  const router = useRouter();
+  const [isHydrated, setIsHydrated] = React.useState(false);
+
+  React.useEffect(() => {
+    applyThemeToDOM(theme);
+  }, [theme]);
+
+  React.useEffect(() => {
+    const checkHydration = () => {
+      if (useAuthStore.persist?.hasHydrated) {
+        setIsHydrated(useAuthStore.persist.hasHydrated());
+      } else {
+        setIsHydrated(true);
+      }
+    };
+    checkHydration();
+    const unsub = useAuthStore.persist?.onFinishHydration?.(() => setIsHydrated(true));
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (isHydrated && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isHydrated, isAuthenticated, router]);
+
+  if (!isHydrated || !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs font-semibold text-slate-400">Loading ABS ERP Environment...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">

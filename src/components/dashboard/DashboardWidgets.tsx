@@ -7,31 +7,18 @@ import {
   CreditCard,
   Cake,
   Calendar as CalendarIcon,
-  CheckCircle2,
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
-import { initialFeePayments, initialExams } from '@/lib/mock-data';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useCrudStore } from '@/store/crud-store';
 import Link from 'next/link';
 
 export default function DashboardWidgets() {
+  const { feePayments, exams } = useCrudStore();
+
   const timetable = [
-    { period: 'Period 1', time: '08:30 - 09:15', subject: 'Physics (Theory)', class: 'Class 10th A', teacher: 'Mrs. Sunita Rao', room: 'Lab 101' },
-    { period: 'Period 2', time: '09:15 - 10:00', subject: 'Mathematics', class: 'Class 12th B', teacher: 'Mr. R. K. Sharma', room: 'Room 304' },
-    { period: 'Period 3', time: '10:15 - 11:00', subject: 'Chemistry Lab', class: 'Class 11th A', teacher: 'Dr. V. Patel', room: 'Chem Lab' },
-    { period: 'Period 4', time: '11:00 - 11:45', subject: 'English Literature', class: 'Class 9th C', teacher: 'Mrs. Anjali Roy', room: 'Room 202' },
-  ];
-
-  const birthdays = [
-    { name: 'Ananya Sharma', class: 'Class 10th A', role: 'Student', age: '16 Yrs Today', photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80' },
-    { name: 'Mr. Amit Tiwari', dept: 'Accounts', role: 'Chief Accountant', photo: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80' },
-  ];
-
-  const calendarEvents = [
-    { date: '25 Jul', title: 'Parent-Teacher Meeting (Classes 9th-12th)', type: 'Academic' },
-    { date: '05 Aug', title: 'First Unit Test Commences', type: 'Exam' },
-    { date: '15 Aug', title: 'Independence Day Celebrations', type: 'Holiday & Event' },
+    { period: 'Period 1', time: '08:30 - 09:15', subject: 'Regular Academic Class', class: 'Main Campus', teacher: 'Assigned Faculty', room: 'Room 101' },
   ];
 
   return (
@@ -80,23 +67,29 @@ export default function DashboardWidgets() {
           </Link>
         </div>
         <div className="space-y-3 flex-1">
-          {initialExams.map((ex) => (
-            <div key={ex.id} className="p-3 rounded-xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/60">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{ex.name}</span>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
-                  {ex.className}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                {formatDate(ex.startDate)} – {formatDate(ex.endDate)}
-              </p>
-              <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 mt-2 pt-2 border-t border-purple-100 dark:border-purple-900/40">
-                <span>Passing: {ex.passingMarks}/{ex.totalMarks}</span>
-                <span className="text-purple-600 dark:text-purple-400 font-semibold">{ex.examType}</span>
-              </div>
+          {exams.length === 0 ? (
+            <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 italic">
+              No Examinations Scheduled Yet
             </div>
-          ))}
+          ) : (
+            exams.map((ex: any) => (
+              <div key={ex.id} className="p-3 rounded-xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{ex.name || ex.title || 'Exam'}</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
+                    {ex.className}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {formatDate(ex.startDate || ex.examDate || '')}
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 mt-2 pt-2 border-t border-purple-100 dark:border-purple-900/40">
+                  <span>Passing: {ex.passingMarks}/{ex.totalMarks}</span>
+                  <span className="text-purple-600 dark:text-purple-400 font-semibold">{ex.examType || ex.status}</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -114,18 +107,24 @@ export default function DashboardWidgets() {
           </Link>
         </div>
         <div className="space-y-3 flex-1">
-          {initialFeePayments.map((pay) => (
-            <div key={pay.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{pay.studentName}</p>
-                <p className="text-[11px] text-slate-500">{pay.receiptNo} • {pay.paymentMode}</p>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(pay.amount)}</span>
-                <span className="block text-[10px] text-slate-400">{formatDate(pay.paymentDate)}</span>
-              </div>
+          {feePayments.length === 0 ? (
+            <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 italic">
+              No Fee Collections Recorded Yet
             </div>
-          ))}
+          ) : (
+            feePayments.slice(0, 5).map((pay: any) => (
+              <div key={pay.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{pay.studentName}</p>
+                  <p className="text-[11px] text-slate-500">{pay.receiptNo} • {pay.paymentMode}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(pay.amountPaid || pay.amount || 0)}</span>
+                  <span className="block text-[10px] text-slate-400">{formatDate(pay.paymentDate)}</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -139,17 +138,8 @@ export default function DashboardWidgets() {
             </div>
             <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Today&apos;s Birthdays 🎉</h3>
           </div>
-          <div className="space-y-2">
-            {birthdays.map((b, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-2.5 rounded-xl bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200/60 dark:border-pink-900/60">
-                <img src={b.photo} alt={b.name} className="w-8 h-8 rounded-full object-cover ring-2 ring-pink-400" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{b.name}</p>
-                  <p className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold">{b.class || b.dept}</p>
-                </div>
-                <Sparkles className="w-4 h-4 text-pink-500 animate-bounce" />
-              </div>
-            ))}
+          <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400 italic bg-pink-50/30 dark:bg-pink-950/10 rounded-xl border border-pink-100 dark:border-pink-950">
+            No Birthdays Recorded Today
           </div>
         </div>
 
@@ -159,15 +149,10 @@ export default function DashboardWidgets() {
             <div className="p-2 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
               <CalendarIcon className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Upcoming Calendar Events</h3>
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Upcoming Events</h3>
           </div>
-          <div className="space-y-2">
-            {calendarEvents.map((ev, idx) => (
-              <div key={idx} className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40">
-                <span className="font-bold text-blue-600 dark:text-blue-400 w-14 shrink-0">{ev.date}</span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium truncate flex-1">{ev.title}</span>
-              </div>
-            ))}
+          <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 italic">
+            No Events Scheduled
           </div>
         </div>
       </div>

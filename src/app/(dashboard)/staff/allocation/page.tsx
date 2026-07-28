@@ -1,29 +1,126 @@
 'use client';
 
-import React, { useState } from 'react';
-import { initialStaff } from '@/lib/mock-data';
-import { Staff } from '@/types';
-import { UserCheck, School, Bus, BookOpen, Check, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useCrudStore } from '@/store/crud-store';
+import { UserCheck, Check, Search } from 'lucide-react';
 
 export default function StaffAllocationPage() {
-  const [allocations, setAllocations] = useState(
-    initialStaff.map((s) => ({
-      id: s.id,
-      name: s.name,
-      role: s.role,
-      department: s.department,
-      allocatedClass: s.allocatedClass || '10th A',
-      subjects: s.subjects ? s.subjects.join(', ') : 'Physics, Science',
-      busRouteHandled: s.busRouteHandled || 'Route 1 - Model Town Circuit',
-    }))
-  );
-
+  const { staff, buses, updateRecord } = useCrudStore();
   const [saved, setSaved] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleSave = () => {
+  // Per-staff state for class & section
+  const [allocations, setAllocations] = useState<Record<string, { className: string; section: string }>>({});
+
+  const classesList = ['LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+
+  // Map of available sections per class
+  const classSectionsMap: Record<string, string[]> = {
+    LKG: ['A', 'B', 'C'],
+    UKG: ['A', 'B', 'C'],
+    '1st': ['A', 'B', 'C', 'D'],
+    '2nd': ['A', 'B', 'C', 'D'],
+    '3rd': ['A', 'B', 'C', 'D', 'E'],
+    '4th': ['A', 'B', 'C', 'D', 'E'],
+    '5th': ['A', 'B', 'C', 'D', 'E', 'F'],
+    '6th': ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+    '7th': ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+    '8th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+    '9th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+    '10th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+    '11th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
+    '12th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
+  };
+
+  // Live database sync on mount
+  useEffect(() => {
+    fetch('/api/buses')
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          useCrudStore.setState({ buses: res.data });
+        }
+      })
+      .catch((err) => console.error('Failed to fetch buses live:', err));
+
+    fetch('/api/staff')
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          useCrudStore.setState({ staff: res.data });
+        }
+      })
+      .catch((err) => console.error('Failed to fetch staff live:', err));
+  }, []);
+
+  // Initialize per-staff class & section state from staff list
+  useEffect(() => {
+    const initialAlloc: Record<string, { className: string; section: string }> = {};
+    staff.forEach((stf) => {
+      const parts = (stf.allocatedClass || '10th A').split(' ');
+      const cls = parts[0] || '10th';
+      const sec = parts[1] || 'A';
+      initialAlloc[stf.id] = { className: cls, section: sec };
+    });
+    setAllocations(initialAlloc);
+  }, [staff]);
+
+  const handleClassChange = (staffId: string, newClass: string) => {
+    const availableSecs = classSectionsMap[newClass] || ['A', 'B', 'C', 'D'];
+    const currentSec = allocations[staffId]?.section || 'A';
+    const validSec = availableSecs.includes(currentSec) ? currentSec : availableSecs[0];
+    setAllocations((prev) => ({
+      ...prev,
+      [staffId]: { className: newClass, section: validSec },
+    }));
+  };
+
+  const handleSectionChange = (staffId: string, newSection: string) => {
+    setAllocations((prev) => ({
+      ...prev,
+      [staffId]: { ...prev[staffId], section: newSection },
+    }));
+  };
+
+  const handleSaveAllocation = (
+    staffId: string,
+    allocatedClass: string,
+    allocatedSection: string,
+    subjectsStr: string,
+    busRouteHandled: string
+  ) => {
+    const subjects = subjectsStr.split(',').map((s) => s.trim()).filter(Boolean);
+    const combinedClass = allocatedSection ? `${allocatedClass} ${allocatedSection}` : allocatedClass;
+    updateRecord('staff', staffId, {
+      allocatedClass: combinedClass,
+      subjects,
+      busRouteHandled: busRouteHandled === 'None' ? undefined : busRouteHandled,
+    });
+
+    // Also call live backend update if API exists
+    fetch(`/api/staff/${staffId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        allocatedClass: combinedClass,
+        subjects,
+        busRouteHandled: busRouteHandled === 'None' ? null : busRouteHandled,
+      }),
+    }).catch(() => {});
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  const filteredStaff = staff.filter((stf) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      stf.name?.toLowerCase().includes(q) ||
+      stf.role?.toLowerCase().includes(q) ||
+      stf.department?.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -33,85 +130,141 @@ export default function StaffAllocationPage() {
             <UserCheck className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Staff Allocation Matrix</h1>
-            <p className="text-xs text-slate-500">Assign Teachers to Classes & Subjects, Drivers to Bus Routes, Lab Staff</p>
+            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              Staff Allocation Matrix
+            </h1>
+            <p className="text-xs text-slate-500">
+              Assign Teachers to Classes & Sections, Drivers to Bus Routes & Lab Staff
+            </p>
           </div>
         </div>
 
-        <button
-          onClick={handleSave}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all active:scale-95"
-        >
-          {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? 'Allocations Saved!' : 'Save All Allocations'}
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search staff, role..."
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+
+          {saved && (
+            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl shrink-0">
+              <Check className="w-4 h-4" /> Allocations Saved
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+            <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/90 backdrop-blur-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="p-4">Staff Name & Role</th>
                 <th className="p-4">Department</th>
-                <th className="p-4">Assigned Class & Section</th>
+                <th className="p-4">Assigned Class ▼</th>
+                <th className="p-4">Assigned Section ▼</th>
                 <th className="p-4">Assigned Subjects</th>
-                <th className="p-4">Assigned Bus Route</th>
+                <th className="p-4">Assigned Bus Route (Live Data)</th>
+                <th className="p-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {allocations.map((item, idx) => (
-                <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                  <td className="p-4 font-bold text-slate-800 dark:text-slate-100">
-                    {item.name}
-                    <span className="block text-[11px] font-normal text-slate-400">{item.role}</span>
-                  </td>
-                  <td className="p-4 text-slate-600 dark:text-slate-400">{item.department}</td>
-                  <td className="p-4">
-                    <select
-                      value={item.allocatedClass}
-                      onChange={(e) => {
-                        const copy = [...allocations];
-                        copy[idx].allocatedClass = e.target.value;
-                        setAllocations(copy);
-                      }}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 font-semibold focus:outline-none"
-                    >
-                      {['LKG A', 'UKG A', '5th C', '10th A', '10th B', '12th A', '12th B'].map((cls) => (
-                        <option key={cls} value={cls}>{cls}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="p-4">
-                    <input
-                      type="text"
-                      value={item.subjects}
-                      onChange={(e) => {
-                        const copy = [...allocations];
-                        copy[idx].subjects = e.target.value;
-                        setAllocations(copy);
-                      }}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 w-48 focus:outline-none"
-                    />
-                  </td>
-                  <td className="p-4">
-                    <select
-                      value={item.busRouteHandled}
-                      onChange={(e) => {
-                        const copy = [...allocations];
-                        copy[idx].busRouteHandled = e.target.value;
-                        setAllocations(copy);
-                      }}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none"
-                    >
-                      <option value="None">None (N/A)</option>
-                      <option value="Route 1 - Model Town Circuit">Route 1 - Model Town Circuit</option>
-                      <option value="Route 2 - South Extension">Route 2 - South Extension</option>
-                      <option value="Route 4 - Dwarka Express">Route 4 - Dwarka Express</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {filteredStaff.map((stf) => {
+                const currentCls = allocations[stf.id]?.className || '10th';
+                const currentSec = allocations[stf.id]?.section || 'A';
+                const availableSections = classSectionsMap[currentCls] || ['A', 'B', 'C', 'D'];
+
+                return (
+                  <tr key={stf.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="p-4 font-bold text-slate-800 dark:text-slate-100">
+                      {stf.name}
+                      <span className="block text-[11px] font-normal text-slate-400">{stf.role}</span>
+                    </td>
+                    <td className="p-4 text-slate-600 dark:text-slate-400">{stf.department}</td>
+                    <td className="p-4">
+                      <select
+                        value={currentCls}
+                        onChange={(e) => handleClassChange(stf.id, e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                      >
+                        {classesList.map((cls) => (
+                          <option key={cls} value={cls}>
+                            Class {cls}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="p-4">
+                      <select
+                        value={currentSec}
+                        onChange={(e) => handleSectionChange(stf.id, e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                      >
+                        {availableSections.map((sec) => (
+                          <option key={sec} value={sec}>
+                            Section {sec}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="p-4">
+                      <input
+                        type="text"
+                        defaultValue={stf.subjects ? stf.subjects.join(', ') : 'Physics, Science'}
+                        id={`sbj-${stf.id}`}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 w-40 focus:outline-none font-medium text-xs"
+                      />
+                    </td>
+                    <td className="p-4">
+                      <select
+                        defaultValue={stf.busRouteHandled || 'None'}
+                        id={`bus-${stf.id}`}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                      >
+                        <option value="None">None (N/A)</option>
+                        {buses.map((b) => {
+                          const val = `Route ${b.routeNo} - ${b.routeName}`;
+                          return (
+                            <option key={b.id} value={val}>
+                              Route {b.routeNo} - {b.routeName} ({b.driverName || 'Driver'})
+                            </option>
+                          );
+                        })}
+                        {buses.length === 0 && (
+                          <>
+                            <option value="Route 1 - Model Town Circuit">Route 1 - Model Town Circuit</option>
+                            <option value="Route 2 - South Extension">Route 2 - South Extension</option>
+                            <option value="Route 4 - Dwarka Express">Route 4 - Dwarka Express</option>
+                          </>
+                        )}
+                      </select>
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => {
+                          const sbjEl = document.getElementById(`sbj-${stf.id}`) as HTMLInputElement;
+                          const busEl = document.getElementById(`bus-${stf.id}`) as HTMLSelectElement;
+                          handleSaveAllocation(
+                            stf.id,
+                            currentCls,
+                            currentSec,
+                            sbjEl.value,
+                            busEl.value
+                          );
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-sm hover:bg-blue-500 transition-all active:scale-95"
+                      >
+                        Update
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -119,3 +272,4 @@ export default function StaffAllocationPage() {
     </div>
   );
 }
+

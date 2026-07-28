@@ -1,309 +1,641 @@
 'use client';
 
 import React, { useState } from 'react';
-import { initialFeePayments, feeStructures, initialStudents } from '@/lib/mock-data';
-import { FeePayment, ClassName } from '@/types';
-import { formatCurrency, formatDate, exportToCSV } from '@/lib/utils';
-import { CreditCard, Plus, Download, Printer, CheckCircle2, Search, X, Receipt } from 'lucide-react';
+import { useCrudStore } from '@/store/crud-store';
+import { FeePayment, FeeStructure, ClassName } from '@/types';
+import { DataTable, Column } from '@/components/crud/DataTable';
+import { CrudModal, FieldConfig } from '@/components/crud/CrudModal';
+import { ImportModal } from '@/components/crud/ImportModal';
+import { AuditLogViewer } from '@/components/crud/AuditLogViewer';
+import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
+import { formatCurrency } from '@/lib/utils';
+import { exportToPDF } from '@/lib/export-utils';
+import PrintModal from '@/components/print/PrintModal';
+import { ReceiptData } from '@/components/print/ReceiptTemplate';
+import { CreditCard, DollarSign, Receipt, Plus, FileText, CheckCircle2 } from 'lucide-react';
 
-export default function FeesManagementPage() {
-  const [payments, setPayments] = useState<FeePayment[]>(initialFeePayments);
-  const [activeTab, setActiveTab] = useState<'collection' | 'structure' | 'pending'>('collection');
-  const [search, setSearch] = useState('');
-  const [isCollectModalOpen, setIsCollectModalOpen] = useState(false);
-  const [selectedReceipt, setSelectedReceipt] = useState<FeePayment | null>(null);
+export default function FeesPage() {
+  const {
+    feePayments,
+    feeStructures,
+    students,
+    auditLogs,
+    addRecord,
+    updateRecord,
+    softDeleteRecord,
+    restoreRecord,
+    permanentDeleteRecord,
+    bulkDeleteRecords,
+    bulkUpdateStatus,
+    importRecords,
+  } = useCrudStore();
 
-  // New Payment form state
-  const [form, setForm] = useState({
-    studentId: 'std-101',
-    amount: 25000,
-    paymentMode: 'UPI' as const,
-    feeCategory: 'Tuition' as const,
-  });
+  const [activeTab, setActiveTab] = useState<'collections' | 'structures'>('collections');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddStructureModalOpen, setIsAddStructureModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<FeePayment | null>(null);
+  const [editingStructure, setEditingStructure] = useState<FeeStructure | null>(null);
+  const [viewingPayment, setViewingPayment] = useState<FeePayment | null>(null);
+  const [printReceiptData, setPrintReceiptData] = useState<ReceiptData | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean; isStructure?: boolean } | null>(null);
 
-  const handleCollectFee = (e: React.FormEvent) => {
-    e.preventDefault();
-    const student = initialStudents.find((s) => s.id === form.studentId);
-    const newPayment: FeePayment = {
-      id: `pay-${Date.now()}`,
-      receiptNo: `RCP-2026-0${payments.length + 894}`,
-      studentId: form.studentId,
-      studentName: student?.name || 'Selected Student',
-      className: student?.className || '10th',
-      amount: form.amount,
-      paymentMode: form.paymentMode,
-      paymentDate: new Date().toISOString().split('T')[0],
-      feeCategory: form.feeCategory,
-      status: 'Success',
-      collectedBy: 'Mr. Amit Tiwari',
-    };
-    setPayments([newPayment, ...payments]);
-    setIsCollectModalOpen(false);
-    setSelectedReceipt(newPayment);
+  React.useEffect(() => {
+    fetch('/api/fees')
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          useCrudStore.setState({ feePayments: res.data });
+        }
+      })
+      .catch((err) => console.error('Failed to load fees from DB:', err));
+  }, []);
+
+  const studentOptions = students.map((s) => ({ label: `${s.name} (${s.className}-${s.section})`, value: s.name }));
+
+  const paymentFields: FieldConfig[] = [
+    { name: 'receiptNo', label: 'Receipt Number', type: 'text', readOnly: true },
+    {
+      name: 'studentName',
+      label: 'Student Name',
+      type: 'select',
+      options: studentOptions.length > 0 ? studentOptions : [{ label: 'Aarav Verma (10th-A)', value: 'Aarav Verma' }],
+    },
+    {
+      name: 'className',
+      label: 'Class',
+      type: 'select',
+      options: ['LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'].map(
+        (c) => ({ label: c, value: c })
+      ),
+    },
+    { name: 'amount', label: 'Collected Amount (₹)', type: 'number', placeholder: '0' },
+    {
+      name: 'feeCategory',
+      label: 'Fee Category',
+      type: 'select',
+      options: [
+        { label: 'Tuition', value: 'Tuition' },
+        { label: 'Transport', value: 'Transport' },
+        { label: 'Exam', value: 'Exam' },
+        { label: 'Uniform', value: 'Uniform' },
+        { label: 'Books', value: 'Books' },
+        { label: 'Other', value: 'Other' },
+      ],
+    },
+    {
+      name: 'paymentMode',
+      label: 'Payment Mode',
+      type: 'select',
+      options: [
+        { label: 'UPI', value: 'UPI' },
+        { label: 'Cash', value: 'Cash' },
+        { label: 'Card', value: 'Card' },
+        { label: 'Bank Transfer', value: 'Bank Transfer' },
+        { label: 'Cheque', value: 'Cheque' },
+      ],
+    },
+    { name: 'paymentDate', label: 'Payment Date', type: 'date' },
+    { name: 'collectedBy', label: 'Collected By (Staff)', type: 'text' },
+    {
+      name: 'status',
+      label: 'Receipt Status',
+      type: 'select',
+      options: [
+        { label: 'Success', value: 'Success' },
+        { label: 'Pending', value: 'Pending' },
+        { label: 'Failed', value: 'Failed' },
+      ],
+    },
+  ];
+
+  const structureFields: FieldConfig[] = [
+    {
+      name: 'className',
+      label: 'Academic Class',
+      type: 'select',
+      options: ['LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'].map(
+        (c) => ({ label: `Class ${c}`, value: c })
+      ),
+    },
+    { name: 'tuitionFee', label: 'Tuition Fee (₹)', type: 'number', placeholder: '0' },
+    { name: 'admissionFee', label: 'Admission Fee (₹)', type: 'number', placeholder: '0' },
+    { name: 'transportFee', label: 'Transport Fee (₹)', type: 'number', placeholder: '0' },
+    { name: 'uniformFee', label: 'Uniform Fee (₹)', type: 'number', placeholder: '0' },
+    { name: 'labFee', label: 'Laboratory Fee (₹)', type: 'number', placeholder: '0' },
+    { name: 'dueDate', label: 'Fee Payment Due Date', type: 'date' },
+  ];
+
+  const paymentColumns: Column<FeePayment>[] = [
+    {
+      key: 'receiptNo',
+      header: 'Receipt No',
+      sortable: true,
+      render: (p) => <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{p.receiptNo}</span>,
+    },
+    {
+      key: 'studentName',
+      header: 'Student Name',
+      sortable: true,
+      render: (p) => (
+        <div>
+          <p className="font-bold text-slate-800 dark:text-slate-100">{p.studentName}</p>
+          <span className="text-[10px] text-blue-600 font-semibold">{p.className}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount Paid',
+      sortable: true,
+      render: (p) => <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(p.amount)}</span>,
+    },
+    { key: 'feeCategory', header: 'Category', sortable: true },
+    { key: 'paymentMode', header: 'Mode', sortable: true },
+    { key: 'paymentDate', header: 'Date', sortable: true },
+    { key: 'collectedBy', header: 'Collected By' },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      render: (p) => (
+        <span
+          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            p.status === 'Success'
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+              : p.status === 'Pending'
+              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+              : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+          }`}
+        >
+          {p.status}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Print',
+      render: (p) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setPrintReceiptData({
+              receiptNumber: p.receiptNo || `RCP-${p.id}`,
+              title: 'OFFICIAL SCHOOL FEE RECEIPT',
+              studentName: p.studentName,
+              admissionNo: p.studentId || 'ADM-2026-101',
+              className: p.className || '10th',
+              section: 'A',
+              parentName: 'Parent / Guardian',
+              paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
+              paymentMethod: p.paymentMode || 'Cash/UPI',
+              cashierName: p.collectedBy || 'Finance Cashier',
+              items: [
+                { name: `${p.feeCategory} Fee Payment`, amount: p.amount },
+              ],
+              subtotal: p.amount,
+              totalAmount: p.amount,
+              remainingBalance: 0,
+              notes: 'Payment received with thanks.',
+            });
+          }}
+          className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm active:scale-95"
+        >
+          <FileText className="w-3 h-3" /> Print Receipt
+        </button>
+      ),
+    },
+  ];
+
+  const handleSavePayment = async (data: Record<string, any>, saveAndNew?: boolean) => {
+    if (editingPayment) {
+      updateRecord('feePayments', editingPayment.id, data);
+      try {
+        await fetch('/api/fees', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingPayment.id, ...data }),
+        });
+      } catch (err) {
+        console.error('Failed to update fee payment in DB:', err);
+      }
+      setEditingPayment(null);
+    } else {
+      const selectedStd = students.find((s) => s.name === data.studentName);
+      const newPay: FeePayment = {
+        id: `pay-${Date.now()}`,
+        receiptNo: data.receiptNo || `RCP-2026-0${feePayments.length + 10}`,
+        studentId: selectedStd?.id || 'std-101',
+        studentName: data.studentName || 'Student',
+        className: (data.className || '10th') as ClassName,
+        amount: Number(data.amount) || 0,
+        paymentMode: data.paymentMode || 'UPI',
+        paymentDate: data.paymentDate || new Date().toISOString().split('T')[0],
+        feeCategory: data.feeCategory || 'Tuition',
+        status: data.status || 'Success',
+        collectedBy: data.collectedBy || 'Accounts Desk',
+      };
+      addRecord('feePayments', newPay);
+
+      try {
+        await fetch('/api/fees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: newPay.id,
+            receiptNo: newPay.receiptNo,
+            studentId: newPay.studentId,
+            studentName: newPay.studentName,
+            admissionNo: selectedStd?.admissionNo || 'ADM-2026-001',
+            className: newPay.className,
+            section: selectedStd?.section || 'A',
+            feeType: newPay.feeCategory,
+            amountPaid: newPay.amount,
+            paymentDate: newPay.paymentDate,
+            paymentMode: newPay.paymentMode,
+            cashier: newPay.collectedBy,
+            status: newPay.status,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to save fee payment to DB:', err);
+      }
+
+      if (!saveAndNew) setIsAddModalOpen(false);
+    }
   };
 
-  const handleExport = () => {
-    exportToCSV('ABS_Fee_Collection_Report', payments);
+  const handleSaveStructure = (data: Record<string, any>, saveAndNew?: boolean) => {
+    const tuition = Number(data.tuitionFee) || 0;
+    const admission = Number(data.admissionFee) || 0;
+    const transport = Number(data.transportFee) || 0;
+    const uniform = Number(data.uniformFee) || 0;
+    const lab = Number(data.labFee) || 0;
+    const total = tuition + admission + transport + uniform + lab;
+
+    if (editingStructure) {
+      updateRecord('feeStructures', editingStructure.id, {
+        ...data,
+        tuitionFee: tuition,
+        admissionFee: admission,
+        transportFee: transport,
+        uniformFee: uniform,
+        labFee: lab,
+        totalAnnualFee: total,
+      });
+      setEditingStructure(null);
+    } else {
+      const newFs: FeeStructure = {
+        id: `fs-${Date.now()}`,
+        className: (data.className || '10th') as ClassName,
+        tuitionFee: tuition,
+        admissionFee: admission,
+        transportFee: transport,
+        uniformFee: uniform,
+        labFee: lab,
+        totalAnnualFee: total,
+        dueDate: data.dueDate || '2026-08-31',
+      };
+      addRecord('feeStructures', newFs);
+      if (!saveAndNew) setIsAddStructureModalOpen(false);
+    }
   };
 
-  const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+  const handlePrintReceipt = (p: FeePayment) => {
+    exportToPDF(
+      `Fee_Receipt_${p.receiptNo}`,
+      `FEE RECEIPT — ${p.receiptNo}`,
+      [
+        { header: 'Field', dataKey: 'field' },
+        { header: 'Details', dataKey: 'value' },
+      ],
+      [
+        { field: 'Receipt Number', value: p.receiptNo },
+        { field: 'Student Name', value: p.studentName },
+        { field: 'Class', value: p.className },
+        { field: 'Amount Collected', value: formatCurrency(p.amount) },
+        { field: 'Fee Category', value: p.feeCategory },
+        { field: 'Payment Mode', value: p.paymentMode },
+        { field: 'Payment Date', value: p.paymentDate },
+        { field: 'Collected By', value: p.collectedBy },
+        { field: 'Status', value: p.status },
+      ]
+    );
+  };
+
+  const handlePaymentFormChange = (currentData: Record<string, any>, changedField: string, newValue: any) => {
+    const updates: Record<string, any> = {};
+
+    let targetClass = currentData.className;
+    if (changedField === 'studentName' && newValue) {
+      const std = students.find((s) => s.name === newValue);
+      if (std?.className) {
+        targetClass = std.className;
+        updates.className = std.className;
+      }
+    } else if (changedField === 'className' && newValue) {
+      targetClass = newValue;
+    }
+
+    const category = currentData.feeCategory || 'Tuition';
+    const fs = feeStructures.find((f) => f.className === targetClass || f.className === updates.className);
+
+    if (fs) {
+      if (category === 'Tuition') updates.amount = fs.tuitionFee;
+      else if (category === 'Admission') updates.amount = fs.admissionFee;
+      else if (category === 'Transport') updates.amount = fs.transportFee;
+      else if (category === 'Uniform') updates.amount = fs.uniformFee;
+      else if (category === 'Lab' || category === 'Books') updates.amount = fs.labFee;
+      else updates.amount = fs.totalAnnualFee;
+    }
+
+    return updates;
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-            <CreditCard className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Fees Management ERP</h1>
-            <p className="text-xs text-slate-500">Collection Counter, Fee Structure per Class, Due Reports & Receipts</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-          >
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
-          <button
-            onClick={() => setIsCollectModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4" /> Collect Fee Now
-          </button>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
+    <div className="space-y-6">
+      <div className="no-print space-y-6">
+        {/* Tab Selector */}
+        <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit text-xs font-bold">
         <button
-          onClick={() => setActiveTab('collection')}
-          className={`px-5 py-3 text-xs font-bold transition-all border-b-2 ${
-            activeTab === 'collection'
-              ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+          onClick={() => setActiveTab('collections')}
+          className={`px-4 py-2 rounded-xl transition-all ${
+            activeTab === 'collections'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          Fee Collection History (Total: {formatCurrency(totalCollected)})
+          Fee Collections & Receipts
         </button>
         <button
-          onClick={() => setActiveTab('structure')}
-          className={`px-5 py-3 text-xs font-bold transition-all border-b-2 ${
-            activeTab === 'structure'
-              ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+          onClick={() => setActiveTab('structures')}
+          className={`px-4 py-2 rounded-xl transition-all ${
+            activeTab === 'structures'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          Annual Fee Structure (LKG - 12th)
+          Fee Structure Matrix
         </button>
       </div>
 
-      {/* Collection Tab */}
-      {activeTab === 'collection' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
-                <tr>
-                  <th className="p-4">Receipt #</th>
-                  <th className="p-4">Student Name</th>
-                  <th className="p-4">Class</th>
-                  <th className="p-4">Category</th>
-                  <th className="p-4">Payment Mode</th>
-                  <th className="p-4">Amount</th>
-                  <th className="p-4">Date</th>
-                  <th className="p-4 text-right">Receipt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {payments.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
-                    <td className="p-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">{p.receiptNo}</td>
-                    <td className="p-4 font-bold text-slate-800 dark:text-slate-100">{p.studentName}</td>
-                    <td className="p-4">
-                      <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 font-bold">
-                        {p.className}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-600 dark:text-slate-400">{p.feeCategory}</td>
-                    <td className="p-4 font-semibold text-slate-700 dark:text-slate-300">{p.paymentMode}</td>
-                    <td className="p-4 font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(p.amount)}</td>
-                    <td className="p-4 text-slate-500">{formatDate(p.paymentDate)}</td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => setSelectedReceipt(p)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors"
-                        title="Print / View Receipt"
-                      >
-                        <Printer className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {activeTab === 'collections' ? (
+        <DataTable
+          title="Fee Collections & Payment Receipts"
+          subtitle="Tuition, Transport, Exam & Books Fee Receipts Management"
+          icon={<CreditCard className="w-6 h-6" />}
+          columns={paymentColumns}
+          data={feePayments}
+          addLabel="Collect Fee Payment"
+          exportFilename="ABS_Fee_Collections"
+          filterOptions={[
+            {
+              key: 'feeCategory',
+              label: 'Category',
+              options: [
+                { label: 'Tuition', value: 'Tuition' },
+                { label: 'Transport', value: 'Transport' },
+                { label: 'Exam', value: 'Exam' },
+                { label: 'Uniform', value: 'Uniform' },
+              ],
+            },
+            {
+              key: 'paymentMode',
+              label: 'Payment Mode',
+              options: [
+                { label: 'UPI', value: 'UPI' },
+                { label: 'Cash', value: 'Cash' },
+                { label: 'Card', value: 'Card' },
+                { label: 'Bank Transfer', value: 'Bank Transfer' },
+              ],
+            },
+          ]}
+          statusUpdateOptions={{
+            field: 'status',
+            label: 'Payment Status',
+            values: ['Success', 'Pending', 'Failed'],
+          }}
+          onAddClick={() => setIsAddModalOpen(true)}
+          onEditClick={(p) => setEditingPayment(p)}
+          onViewClick={(p) => setViewingPayment(p)}
+          onSoftDeleteClick={(p) => setConfirmDelete({ id: p.id, name: p.receiptNo, permanent: false })}
+          onRestoreClick={(p) => restoreRecord('feePayments', p.id)}
+          onPermanentDeleteClick={(p) => setConfirmDelete({ id: p.id, name: p.receiptNo, permanent: true })}
+          onBulkDelete={(ids, soft) => bulkDeleteRecords('feePayments', ids, soft)}
+          onBulkStatusUpdate={(ids, field, val) => bulkUpdateStatus('feePayments', ids, field, val)}
+          onImportClick={() => setIsImportOpen(true)}
+          onAuditLogsClick={() => setIsAuditOpen(true)}
+        />
+      ) : (
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-900 dark:text-white mb-1">Class-wise Annual Fee Structure Matrix</h2>
+                <p className="text-xs text-slate-500">Configure Tuition, Admission, Transport, Exam & Laboratory Fee Schedules per Class</p>
+              </div>
 
-      {/* Structure Tab */}
-      {activeTab === 'structure' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {feeStructures.map((fs) => (
-            <div key={fs.id} className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                <span className="text-lg font-extrabold text-slate-900 dark:text-white">Class {fs.className}</span>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                  Annual Total: {formatCurrency(fs.totalAnnualFee)}
-                </span>
-              </div>
-              <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-                <div className="flex justify-between">
-                  <span>Tuition Fee:</span>
-                  <strong>{formatCurrency(fs.tuitionFee)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Admission Fee:</span>
-                  <strong>{formatCurrency(fs.admissionFee)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Transport Fee:</span>
-                  <strong>{formatCurrency(fs.transportFee)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Exam & Lab Fee:</span>
-                  <strong>{formatCurrency(fs.examFee + fs.labFee)}</strong>
-                </div>
-              </div>
+              <button
+                onClick={() => setIsAddStructureModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md self-start md:self-auto active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Add Fee Structure
+              </button>
             </div>
-          ))}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3">Class</th>
+                    <th className="p-3">Tuition Fee</th>
+                    <th className="p-3">Admission Fee</th>
+                    <th className="p-3">Transport Fee</th>
+                    <th className="p-3">Uniform Fee</th>
+                    <th className="p-3">Lab Fee</th>
+                    <th className="p-3">Total Annual Fee</th>
+                    <th className="p-3">Due Date</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {feeStructures.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-8 text-center text-slate-400 italic">
+                        No Fee Structures Configured Yet. Click &quot;Add Fee Structure&quot; to create one.
+                      </td>
+                    </tr>
+                  ) : (
+                    feeStructures.map((fs) => (
+                      <tr key={fs.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 font-medium">
+                        <td className="p-3 font-bold text-blue-600">{fs.className}</td>
+                        <td className="p-3">{formatCurrency(fs.tuitionFee)}</td>
+                        <td className="p-3">{formatCurrency(fs.admissionFee)}</td>
+                        <td className="p-3">{formatCurrency(fs.transportFee)}</td>
+                        <td className="p-3">{formatCurrency(fs.uniformFee)}</td>
+                        <td className="p-3">{formatCurrency(fs.labFee)}</td>
+                        <td className="p-3 font-black text-slate-900 dark:text-white">{formatCurrency(fs.totalAnnualFee)}</td>
+                        <td className="p-3 text-slate-500">{fs.dueDate}</td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setEditingStructure(fs)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-blue-600 font-bold text-[11px] transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete({ id: fs.id, name: `Class ${fs.className} Fee Structure`, permanent: true, isStructure: true })}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 font-bold text-[11px] transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Collect Fee Modal */}
-      {isCollectModalOpen && (
+      {/* Add / Edit Fee Payment Receipt Modal */}
+      <CrudModal
+        isOpen={isAddModalOpen || Boolean(editingPayment)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingPayment(null);
+        }}
+        title="Fee Payment Receipt"
+        fields={paymentFields}
+        initialData={editingPayment ? { ...editingPayment } : null}
+        onSave={handleSavePayment}
+        onFormChange={handlePaymentFormChange}
+      />
+
+      {/* Add / Edit Fee Structure Modal */}
+      <CrudModal
+        isOpen={isAddStructureModalOpen || Boolean(editingStructure)}
+        onClose={() => {
+          setIsAddStructureModalOpen(false);
+          setEditingStructure(null);
+        }}
+        title="Fee Structure Schedule"
+        fields={structureFields}
+        initialData={editingStructure ? { ...editingStructure } : null}
+        onSave={handleSaveStructure}
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Fee Payments"
+        onImport={(rows) => importRecords('feePayments', rows)}
+      />
+
+      {/* Audit Log Modal */}
+      <AuditLogViewer
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        moduleName="feePayments"
+        auditLogs={auditLogs}
+      />
+
+      {/* Delete Confirm */}
+      {confirmDelete && (
+        <ConfirmDialog
+          isOpen={Boolean(confirmDelete)}
+          onClose={() => setConfirmDelete(null)}
+          title={confirmDelete.isStructure ? 'Delete Fee Structure' : confirmDelete.permanent ? 'Permanently Purge Receipt' : 'Move Receipt to Trash'}
+          message={`Are you sure you want to delete ${confirmDelete.name}?`}
+          confirmLabel="Delete Record"
+          onConfirm={() => {
+            if (confirmDelete.isStructure) {
+              permanentDeleteRecord('feeStructures', confirmDelete.id);
+            } else if (confirmDelete.permanent) {
+              permanentDeleteRecord('feePayments', confirmDelete.id);
+            } else {
+              softDeleteRecord('feePayments', confirmDelete.id);
+            }
+          }}
+        />
+      )}
+
+      {/* View & PDF Receipt Modal */}
+      {viewingPayment && (
         <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Record Fee Payment</h3>
-              <button onClick={() => setIsCollectModalOpen(false)} className="p-1 text-slate-400">
-                <X className="w-5 h-5" />
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-blue-600" /> Fee Payment Receipt
+              </h3>
+              <button onClick={() => setViewingPayment(null)} className="text-slate-400 hover:text-slate-600">
+                ✕
               </button>
             </div>
 
-            <form onSubmit={handleCollectFee} className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold text-slate-600 dark:text-slate-300 block mb-1">Select Student</label>
-                <select
-                  value={form.studentId}
-                  onChange={(e) => setForm({ ...form, studentId: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                >
-                  {initialStudents.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} (Class {s.className}-{s.section})
-                    </option>
-                  ))}
-                </select>
+            <div className="space-y-3 text-xs">
+              <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl space-y-1">
+                <span className="text-slate-400 block text-[11px]">Official ABS School ERP Receipt</span>
+                <strong className="text-lg font-black font-mono text-slate-900 dark:text-white">{viewingPayment.receiptNo}</strong>
+                <p className="text-2xl font-black text-emerald-600 pt-1">{formatCurrency(viewingPayment.amount)}</p>
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-600 dark:text-slate-300 block mb-1">Amount (₹)</label>
-                <input
-                  type="number"
-                  required
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-semibold text-slate-600 dark:text-slate-300 block mb-1">Payment Mode</label>
-                  <select
-                    value={form.paymentMode}
-                    onChange={(e) => setForm({ ...form, paymentMode: e.target.value as any })}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                  >
-                    <option value="UPI">UPI / GPay</option>
-                    <option value="Cash">Cash Counter</option>
-                    <option value="Card">Credit/Debit Card</option>
-                    <option value="Bank Transfer">NEFT/RTGS</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="font-semibold text-slate-600 dark:text-slate-300 block mb-1">Category</label>
-                  <select
-                    value={form.feeCategory}
-                    onChange={(e) => setForm({ ...form, feeCategory: e.target.value as any })}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                  >
-                    <option value="Tuition">Tuition</option>
-                    <option value="Transport">Transport</option>
-                    <option value="Exam">Exam</option>
-                    <option value="Uniform">Uniform</option>
-                  </select>
-                </div>
+              <div className="space-y-1.5 pt-1">
+                <p>Student: <strong>{viewingPayment.studentName}</strong> ({viewingPayment.className})</p>
+                <p>Fee Category: <strong>{viewingPayment.feeCategory}</strong></p>
+                <p>Payment Mode: {viewingPayment.paymentMode}</p>
+                <p>Date: {viewingPayment.paymentDate}</p>
+                <p>Collected By: {viewingPayment.collectedBy}</p>
               </div>
 
               <button
-                type="submit"
-                className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-md hover:bg-emerald-500 transition-all mt-2"
+                onClick={() => {
+                  const p = viewingPayment;
+                  setViewingPayment(null);
+                  setPrintReceiptData({
+                    receiptNumber: p.receiptNo || `RCP-${p.id}`,
+                    title: 'OFFICIAL SCHOOL FEE RECEIPT',
+                    studentName: p.studentName,
+                    admissionNo: p.studentId || 'ADM-2026-101',
+                    className: p.className || '10th',
+                    section: 'A',
+                    parentName: 'Parent / Guardian',
+                    paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
+                    paymentMethod: p.paymentMode || 'Cash/UPI',
+                    cashierName: p.collectedBy || 'Finance Cashier',
+                    items: [
+                      { name: `${p.feeCategory} Fee Payment`, amount: p.amount },
+                    ],
+                    subtotal: p.amount,
+                    totalAmount: p.amount,
+                    remainingBalance: 0,
+                    notes: 'Payment received with thanks.',
+                  });
+                }}
+                className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center gap-1.5 shadow-md hover:bg-blue-500"
               >
-                Confirm & Generate Receipt
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Printable Receipt Modal */}
-      {selectedReceipt && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white text-slate-900 rounded-3xl w-full max-w-lg p-6 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-base font-extrabold">ABS School Official Fee Receipt</h3>
-              </div>
-              <button onClick={() => setSelectedReceipt(null)} className="p-1 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 text-xs font-mono">
-              <div className="flex justify-between border-b pb-2">
-                <span>RECEIPT NO: <strong>{selectedReceipt.receiptNo}</strong></span>
-                <span>DATE: {selectedReceipt.paymentDate}</span>
-              </div>
-              <div className="space-y-1 text-slate-700">
-                <p>STUDENT NAME: <strong>{selectedReceipt.studentName}</strong></p>
-                <p>CLASS: Class {selectedReceipt.className}</p>
-                <p>FEE HEAD: {selectedReceipt.feeCategory} Fee</p>
-                <p>MODE: {selectedReceipt.paymentMode}</p>
-                <p>COLLECTED BY: {selectedReceipt.collectedBy}</p>
-              </div>
-              <div className="pt-2 border-t flex justify-between text-sm font-bold text-emerald-700">
-                <span>TOTAL PAID:</span>
-                <span>{formatCurrency(selectedReceipt.amount)}</span>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => window.print()}
-                className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-2"
-              >
-                <Printer className="w-4 h-4" /> Print Receipt PDF
+                <FileText className="w-4 h-4" /> Print / Export Official Receipt
               </button>
             </div>
           </div>
         </div>
+      )}
+      </div>
+
+      {/* Fee Receipt Print Modal */}
+      {printReceiptData && (
+        <PrintModal
+          isOpen={!!printReceiptData}
+          onClose={() => setPrintReceiptData(null)}
+          title={`Print Fee Receipt - ${printReceiptData.receiptNumber}`}
+          receiptData={printReceiptData}
+        />
       )}
     </div>
   );

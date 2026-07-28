@@ -13,8 +13,17 @@ export type UserRole =
   | 'Parent'
   | 'Student';
 
-export interface User {
+export interface BaseAuditEntity {
+  isDeleted?: boolean;
+  createdAt?: string;
+  createdBy?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface User extends BaseAuditEntity {
   id: string;
+  username?: string;
   name: string;
   email: string;
   role: UserRole;
@@ -22,6 +31,20 @@ export interface User {
   phone?: string;
   status: 'Active' | 'Inactive';
   lastLogin?: string;
+  passwordHash?: string;
+  failedAttempts?: number;
+  isLocked?: boolean;
+  lockedUntil?: string;
+}
+
+export interface LoginAuditRecord {
+  id: string;
+  userId: string;
+  username: string;
+  timestamp: string;
+  status: 'SUCCESS' | 'FAILED_PASSWORD' | 'ACCOUNT_LOCKED' | 'INACTIVE_ACCOUNT' | 'USER_NOT_FOUND';
+  ipAddress: string;
+  userAgent: string;
 }
 
 export type ClassName =
@@ -32,7 +55,7 @@ export type ClassName =
 
 export type Section = 'A' | 'B' | 'C' | 'D';
 
-export interface Student {
+export interface Student extends BaseAuditEntity {
   id: string;
   admissionNo: string;
   rollNo: string;
@@ -41,6 +64,7 @@ export interface Student {
   name: string;
   className: ClassName;
   section: Section;
+  course?: string;
   dob: string;
   gender: 'Male' | 'Female' | 'Other';
   bloodGroup: string;
@@ -61,7 +85,7 @@ export interface Student {
   status: 'Active' | 'Transferred' | 'Alumni';
 }
 
-export interface Staff {
+export interface Staff extends BaseAuditEntity {
   id: string;
   empId: string;
   firstName: string;
@@ -83,7 +107,7 @@ export interface Staff {
   busRouteHandled?: string;
 }
 
-export interface AttendanceRecord {
+export interface AttendanceRecord extends BaseAuditEntity {
   id: string;
   date: string;
   entityId: string; // studentId or staffId
@@ -96,19 +120,19 @@ export interface AttendanceRecord {
   remarks?: string;
 }
 
-export interface FeeStructure {
+export interface FeeStructure extends BaseAuditEntity {
   id: string;
   className: ClassName;
   tuitionFee: number;
   admissionFee: number;
   transportFee: number;
-  examFee: number;
+  uniformFee: number;
   labFee: number;
   totalAnnualFee: number;
   dueDate: string;
 }
 
-export interface FeePayment {
+export interface FeePayment extends BaseAuditEntity {
   id: string;
   receiptNo: string;
   studentId: string;
@@ -122,7 +146,7 @@ export interface FeePayment {
   collectedBy: string;
 }
 
-export interface Exam {
+export interface Exam extends BaseAuditEntity {
   id: string;
   name: string;
   examType: 'Unit Test' | 'Mid Term' | 'Quarterly' | 'Half Yearly' | 'Annual';
@@ -134,7 +158,7 @@ export interface Exam {
   status: 'Upcoming' | 'Ongoing' | 'Completed';
 }
 
-export interface ExamMark {
+export interface ExamMark extends BaseAuditEntity {
   id: string;
   examId: string;
   examName: string;
@@ -149,7 +173,7 @@ export interface ExamMark {
   remarks: string;
 }
 
-export interface Supplier {
+export interface Supplier extends BaseAuditEntity {
   id: string;
   supplierCode: string;
   name: string;
@@ -164,7 +188,7 @@ export interface Supplier {
   status: 'Active' | 'Inactive';
 }
 
-export interface PurchaseOrder {
+export interface PurchaseOrder extends BaseAuditEntity {
   id: string;
   poNumber: string;
   supplierId: string;
@@ -176,7 +200,7 @@ export interface PurchaseOrder {
   itemsCount: number;
 }
 
-export interface SalesItem {
+export interface SalesItem extends BaseAuditEntity {
   id: string;
   invoiceNo: string;
   customerName: string;
@@ -192,7 +216,7 @@ export interface SalesItem {
   paymentMethod: 'Cash' | 'UPI' | 'Card';
 }
 
-export interface InventoryItem {
+export interface InventoryItem extends BaseAuditEntity {
   id: string;
   itemCode: string;
   name: string;
@@ -205,7 +229,7 @@ export interface InventoryItem {
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
 }
 
-export interface BusRoute {
+export interface BusRoute extends BaseAuditEntity {
   id: string;
   routeNo: string;
   routeName: string;
@@ -219,7 +243,7 @@ export interface BusRoute {
   status: 'Operational' | 'Maintenance' | 'Idle';
 }
 
-export interface Announcement {
+export interface Announcement extends BaseAuditEntity {
   id: string;
   title: string;
   content: string;
@@ -231,7 +255,7 @@ export interface Announcement {
   status: 'Published' | 'Scheduled' | 'Draft';
 }
 
-export interface FinancialTransaction {
+export interface FinancialTransaction extends BaseAuditEntity {
   id: string;
   transactionNo: string;
   type: 'Income' | 'Expense';
@@ -244,7 +268,7 @@ export interface FinancialTransaction {
   approvedBy: string;
 }
 
-export interface SystemNotification {
+export interface SystemNotification extends BaseAuditEntity {
   id: string;
   title: string;
   message: string;
@@ -252,4 +276,56 @@ export interface SystemNotification {
   timestamp: string;
   read: boolean;
   category: 'Fee Due' | 'Birthday' | 'Attendance' | 'Exam' | 'Inventory' | 'Purchase' | 'Announcement';
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'SOFT_DELETE' | 'RESTORE' | 'BULK_DELETE' | 'BULK_UPDATE' | 'IMPORT';
+  module: string;
+  recordId: string;
+  details: string;
+}
+
+export interface RolePermission {
+  role: UserRole;
+  description: string;
+  permissions: {
+    module: string;
+    create: boolean;
+    read: boolean;
+    update: boolean;
+    delete: boolean;
+    export: boolean;
+  }[];
+}
+
+export interface ClassEntity extends BaseAuditEntity {
+  id: string;
+  className: ClassName;
+  classTeacher: string;
+  capacity: number;
+  totalStudents: number;
+  roomNo: string;
+}
+
+export interface SubjectEntity extends BaseAuditEntity {
+  id: string;
+  code: string;
+  name: string;
+  className: ClassName;
+  teacherName: string;
+  credits: number;
+  type: 'Core' | 'Elective' | 'Lab';
+}
+
+export interface SectionEntity extends BaseAuditEntity {
+  id: string;
+  className: ClassName;
+  section: Section;
+  capacity: number;
+  classTeacher: string;
 }

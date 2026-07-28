@@ -1,0 +1,358 @@
+// Prisma Schema for ABS School Management ERP (MySQL Database)
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  PRINCIPAL
+  VICE_PRINCIPAL
+  ADMIN
+  ACCOUNTANT
+  HR
+  TEACHER
+  TRANSPORT_MANAGER
+  INVENTORY_MANAGER
+  LIBRARIAN
+  RECEPTIONIST
+  PARENT
+  STUDENT
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+model User {
+  id             String    @id @default(uuid())
+  username       String    @unique
+  name           String
+  email          String    @unique
+  role           Role      @default(ADMIN)
+  avatar         String?
+  phone          String?
+  status         Status    @default(ACTIVE)
+  lastLogin      DateTime?
+  passwordHash   String
+  failedAttempts Int       @default(0)
+  isLocked       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model RolePermission {
+  id          String   @id @default(uuid())
+  role        Role     @unique
+  permissions String   // JSON stringified array of permission keys
+  updatedAt   DateTime @updatedAt
+
+  @@map("role_permissions")
+}
+
+model Student {
+  id                String   @id @default(uuid())
+  admissionNo       String   @unique
+  rollNo            String
+  firstName         String
+  lastName          String
+  name              String
+  className         String
+  section           String
+  course            String?
+  dob               String
+  gender            String
+  bloodGroup        String?
+  photo             String?
+  fatherName        String?
+  motherName        String?
+  parentPhone       String
+  parentEmail       String?
+  address           String
+  busRoute          String?
+  feeStatus         String   @default("Pending")
+  totalFees         Float    @default(0)
+  paidFees          Float    @default(0)
+  dueFees           Float    @default(0)
+  attendancePercent Float    @default(0)
+  medicalInfo       String?
+  joiningDate       String
+  status            Status   @default(ACTIVE)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("students")
+}
+
+model Staff {
+  id             String   @id @default(uuid())
+  employeeId     String   @unique
+  firstName      String
+  lastName       String
+  name           String
+  role           String
+  designation    String
+  department     String
+  email          String   @unique
+  phone          String
+  qualification  String
+  salary         Float
+  joiningDate    String
+  gender         String
+  address        String
+  photo          String?
+  assignedClass  String?
+  subjectSpecial String?
+  status         Status   @default(ACTIVE)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("staff")
+}
+
+model Supplier {
+  id             String   @id @default(uuid())
+  companyName    String
+  contactPerson  String
+  phone          String
+  email          String
+  address        String
+  gstin          String?
+  category       String
+  suppliedItems  String?  // Comma separated or JSON string
+  totalPurchases Float    @default(0)
+  duePayment     Float    @default(0)
+  status         Status   @default(ACTIVE)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id             String   @id @default(uuid())
+  poNumber       String   @unique
+  supplierName   String
+  supplierId     String?
+  orderDate      String
+  expectedDate   String?
+  itemsCount     Int      @default(0)
+  totalAmount    Float
+  paidAmount     Float    @default(0)
+  paymentStatus  String   @default("Pending")
+  deliveryStatus String   @default("Pending")
+  items          String   // JSON stringified items list
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("purchase_orders")
+}
+
+model SalesItem {
+  id            String   @id @default(uuid())
+  invoiceNo     String   @unique
+  customerName  String
+  customerType  String   // Student | Staff | Other
+  date          String
+  itemCategory  String
+  itemName      String
+  quantity      Int      @default(1)
+  unitPrice     Float
+  totalAmount   Float
+  paymentMethod String   @default("Cash")
+  paymentStatus String   @default("Paid")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("sales_items")
+}
+
+model InventoryItem {
+  id          String   @id @default(uuid())
+  itemCode    String   @unique
+  name        String
+  category    String
+  quantity    Int      @default(0)
+  minStock    Int      @default(10)
+  unitPrice   Float
+  location    String
+  supplier    String?
+  lastUpdated String
+  status      String   @default("In Stock")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("inventory_items")
+}
+
+model BusRoute {
+  id           String   @id @default(uuid())
+  routeNumber  String   @unique
+  routeName    String
+  driverName   String
+  driverPhone  String
+  vehicleNo    String
+  capacity     Int      @default(40)
+  assignedCount Int     @default(0)
+  monthlyFee   Float
+  status       Status   @default(ACTIVE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("bus_routes")
+}
+
+model Announcement {
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  category    String   // Academic | General | Event | Exam | Urgent
+  targetAudience String // All | Students | Staff | Parents
+  postedBy    String
+  date        String
+  isImportant Boolean  @default(false)
+  status      Status   @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("announcements")
+}
+
+model FeePayment {
+  id             String   @id @default(uuid())
+  receiptNo      String   @unique
+  studentId      String
+  studentName    String
+  admissionNo    String
+  className      String
+  section        String
+  feeType        String
+  amountPaid     Float
+  paymentDate    String
+  paymentMode    String
+  transactionRef String?
+  cashier        String
+  status         String   @default("Completed")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("fee_payments")
+}
+
+model FeeStructure {
+  id            String   @id @default(uuid())
+  className     String
+  academicYear  String
+  tuitionFee    Float    @default(0)
+  admissionFee  Float    @default(0)
+  uniformFee    Float    @default(0)
+  transportFee  Float    @default(0)
+  labFee        Float    @default(0)
+  otherFee      Float    @default(0)
+  totalAnnualFee Float   @default(0)
+  dueDate       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("fee_structures")
+}
+
+model Exam {
+  id           String   @id @default(uuid())
+  examCode     String   @unique
+  title        String
+  className    String
+  section      String
+  subject      String
+  examDate     String
+  totalMarks   Int      @default(100)
+  passingMarks Int      @default(35)
+  academicYear String
+  status       String   @default("Scheduled")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("exams")
+}
+
+model ExamMark {
+  id             String   @id @default(uuid())
+  examId         String
+  studentId      String
+  studentName    String
+  rollNo         String
+  marksObtained  Float
+  grade          String
+  remarks        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("exam_marks")
+}
+
+model FinancialTransaction {
+  id             String   @id @default(uuid())
+  txnNumber      String   @unique
+  date           String
+  type           String   // Income | Expense
+  category       String
+  description    String
+  amount         Float
+  paymentMethod  String
+  referenceNo    String?
+  handledBy      String
+  status         String   @default("Completed")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("financial_transactions")
+}
+
+model SystemNotification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  type      String   // Info | Warning | Alert | Success
+  target    String   // Admin | Staff | All
+  read      Boolean  @default(false)
+  timestamp String
+  createdAt DateTime @default(now())
+
+  @@map("system_notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  user      String
+  role      String
+  action    String
+  details   String
+  ipAddress String?
+  timestamp String
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model ClassEntity {
+  id            String   @id @default(uuid())
+  className     String   @unique
+  classTeacher  String?
+  capacity      Int      @default(40)
+  totalStudents Int      @default(0)
+  roomNo        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("classes")
+}

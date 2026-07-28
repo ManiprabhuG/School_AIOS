@@ -54,3 +54,5 @@ logs/
 # Uploads
 uploads/
 public/uploads/
+
+.vercel

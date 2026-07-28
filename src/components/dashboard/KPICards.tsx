@@ -19,6 +19,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { useCrudStore } from '@/store/crud-store';
 
 interface KPICardData {
   title: string;
@@ -30,25 +31,49 @@ interface KPICardData {
 }
 
 export default function KPICards() {
+  const {
+    students,
+    staff,
+    feePayments,
+    exams,
+    buses,
+    inventory,
+    suppliers,
+    purchases,
+    announcements,
+  } = useCrudStore();
+
+  const totalStudentsCount = students.length;
+  const boysCount = students.filter((s) => s.gender === 'Male').length;
+  const girlsCount = students.filter((s) => s.gender === 'Female').length;
+  const totalStaffCount = staff.length;
+  const teachingStaffCount = staff.filter((s) => s.role === 'Teacher').length;
+  const nonTeachingStaffCount = totalStaffCount - teachingStaffCount;
+
+  const totalFeeCollected = feePayments.reduce((sum, p: any) => sum + (p.amount || p.amountPaid || 0), 0);
+  const totalPendingFees = students.reduce((sum, s) => sum + (s.dueFees || 0), 0);
+  const totalInventoryCount = inventory.reduce((sum, i: any) => sum + (i.quantityInStock || i.quantity || 0), 0);
+  const lowStockCount = inventory.filter((i: any) => (i.quantityInStock || i.quantity || 0) < (i.minReorderLevel || i.minStock || 10)).length;
+
   const kpiData: KPICardData[] = [
-    { title: 'Total Students', value: '2,480', change: '+12% vs last term', isPositive: true, icon: GraduationCap, color: 'from-blue-500 to-indigo-600' },
-    { title: 'Boys', value: '1,320', change: '53.2% ratio', isPositive: true, icon: Users, color: 'from-cyan-500 to-blue-600' },
-    { title: 'Girls', value: '1,160', change: '46.8% ratio', isPositive: true, icon: Users, color: 'from-pink-500 to-rose-600' },
-    { title: 'Total Staff', value: '184', change: 'Fully staffed', isPositive: true, icon: UserCheck, color: 'from-purple-500 to-indigo-600' },
-    { title: 'Teaching Staff', value: '124', change: 'PBT & TGT qualified', isPositive: true, icon: UserCheck, color: 'from-violet-500 to-purple-600' },
-    { title: 'Non-Teaching Staff', value: '60', change: 'Admin & Maintenance', isPositive: true, icon: UserCheck, color: 'from-slate-500 to-slate-700' },
-    { title: "Today's Attendance", value: '95.4%', change: '+1.2% this week', isPositive: true, icon: CalendarCheck, color: 'from-emerald-500 to-teal-600' },
-    { title: 'Fee Collection Today', value: formatCurrency(145000), change: '42 transactions', isPositive: true, icon: CreditCard, color: 'from-emerald-600 to-green-700' },
-    { title: 'Monthly Fee Collection', value: formatCurrency(3850000), change: '+8.4% target met', isPositive: true, icon: TrendingUp, color: 'from-blue-600 to-cyan-600' },
-    { title: 'Pending Fees', value: formatCurrency(420000), change: '18 students due', isPositive: false, icon: AlertCircle, color: 'from-amber-500 to-orange-600' },
-    { title: 'Exams Scheduled', value: '4 Exams', change: 'Starting Aug 5', isPositive: true, icon: BookOpen, color: 'from-sky-500 to-blue-600' },
-    { title: 'Buses Running', value: '18 Fleet', change: 'All routes active', isPositive: true, icon: Bus, color: 'from-yellow-500 to-amber-600' },
-    { title: 'Inventory Items', value: '1,240', change: '4 low stock items', isPositive: false, icon: Boxes, color: 'from-indigo-500 to-blue-600' },
-    { title: 'Suppliers', value: '28 Vendors', change: '2 pending bills', isPositive: true, icon: Truck, color: 'from-teal-500 to-emerald-600' },
-    { title: 'Purchase Orders', value: '14 Active', change: '₹2.8L in pipeline', isPositive: true, icon: ShoppingBag, color: 'from-violet-600 to-purple-700' },
-    { title: 'Announcements', value: '3 Active', change: 'Independence Day', isPositive: true, icon: Megaphone, color: 'from-rose-500 to-pink-600' },
-    { title: 'Events This Month', value: '6 Events', change: 'Sports Meet ahead', isPositive: true, icon: Calendar, color: 'from-sky-600 to-indigo-600' },
-    { title: 'Visitors Today', value: '24 Guests', change: 'Entry logged', isPositive: true, icon: UserPlus, color: 'from-emerald-500 to-green-600' },
+    { title: 'Total Students', value: totalStudentsCount, change: totalStudentsCount > 0 ? `${totalStudentsCount} active students` : 'No records yet', isPositive: true, icon: GraduationCap, color: 'from-blue-500 to-indigo-600' },
+    { title: 'Boys', value: boysCount, change: totalStudentsCount > 0 ? `${((boysCount / totalStudentsCount) * 100).toFixed(1)}% ratio` : '0%', isPositive: true, icon: Users, color: 'from-cyan-500 to-blue-600' },
+    { title: 'Girls', value: girlsCount, change: totalStudentsCount > 0 ? `${((girlsCount / totalStudentsCount) * 100).toFixed(1)}% ratio` : '0%', isPositive: true, icon: Users, color: 'from-pink-500 to-rose-600' },
+    { title: 'Total Staff', value: totalStaffCount, change: totalStaffCount > 0 ? `${totalStaffCount} active staff` : 'No staff yet', isPositive: true, icon: UserCheck, color: 'from-purple-500 to-indigo-600' },
+    { title: 'Teaching Staff', value: teachingStaffCount, change: 'Faculty members', isPositive: true, icon: UserCheck, color: 'from-violet-500 to-purple-600' },
+    { title: 'Non-Teaching Staff', value: nonTeachingStaffCount > 0 ? nonTeachingStaffCount : 0, change: 'Admin & Operations', isPositive: true, icon: UserCheck, color: 'from-slate-500 to-slate-700' },
+    { title: "Today's Attendance", value: totalStudentsCount > 0 ? '0%' : '0%', change: 'Record attendance', isPositive: true, icon: CalendarCheck, color: 'from-emerald-500 to-teal-600' },
+    { title: 'Fee Collection', value: formatCurrency(totalFeeCollected), change: `${feePayments.length} transactions`, isPositive: true, icon: CreditCard, color: 'from-emerald-600 to-green-700' },
+    { title: 'Monthly Collection', value: formatCurrency(totalFeeCollected), change: 'Total collected', isPositive: true, icon: TrendingUp, color: 'from-blue-600 to-cyan-600' },
+    { title: 'Pending Fees', value: formatCurrency(totalPendingFees), change: totalPendingFees > 0 ? 'Outstanding balance' : 'Zero dues', isPositive: totalPendingFees === 0, icon: AlertCircle, color: 'from-amber-500 to-orange-600' },
+    { title: 'Exams Scheduled', value: `${exams.length} Exams`, change: exams.length > 0 ? 'Active exams' : 'No exams scheduled', isPositive: true, icon: BookOpen, color: 'from-sky-500 to-blue-600' },
+    { title: 'Buses Running', value: `${buses.length} Fleet`, change: buses.length > 0 ? 'Active routes' : 'No routes added', isPositive: true, icon: Bus, color: 'from-yellow-500 to-amber-600' },
+    { title: 'Inventory Items', value: totalInventoryCount, change: lowStockCount > 0 ? `${lowStockCount} low stock items` : 'Stock normal', isPositive: lowStockCount === 0, icon: Boxes, color: 'from-indigo-500 to-blue-600' },
+    { title: 'Suppliers', value: `${suppliers.length} Vendors`, change: 'Registered suppliers', isPositive: true, icon: Truck, color: 'from-teal-500 to-emerald-600' },
+    { title: 'Purchase Orders', value: `${purchases.length} Orders`, change: 'Total POs', isPositive: true, icon: ShoppingBag, color: 'from-violet-600 to-purple-700' },
+    { title: 'Announcements', value: `${announcements.length} Active`, change: announcements.length > 0 ? 'Published notices' : 'No announcements', isPositive: true, icon: Megaphone, color: 'from-rose-500 to-pink-600' },
+    { title: 'Events This Month', value: '0 Events', change: 'Academic calendar', isPositive: true, icon: Calendar, color: 'from-sky-600 to-indigo-600' },
+    { title: 'Visitors Today', value: '0 Guests', change: 'Visitor log empty', isPositive: true, icon: UserPlus, color: 'from-emerald-500 to-green-600' },
   ];
 
   return (
