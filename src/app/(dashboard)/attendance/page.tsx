@@ -19,12 +19,36 @@ export default function AttendancePage() {
 
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
 
+  const parseClassAndSection = (rawClass?: string | null, rawSection?: string | null) => {
+    let cls = (rawClass || '').trim();
+    let sec = (rawSection || '').trim();
+
+    if (cls.includes('-')) {
+      const parts = cls.split('-');
+      cls = parts[0].trim();
+      if (!sec) sec = parts[1].trim();
+    }
+
+    return {
+      className: cls || '10th',
+      section: sec || 'A',
+    };
+  };
+
   React.useEffect(() => {
     fetch('/api/attendance')
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          setAttendanceRecords(res.data);
+          const normalized = res.data.map((rec: any) => {
+            const parsed = parseClassAndSection(rec.className, rec.section);
+            return {
+              ...rec,
+              className: rec.entityType === 'Staff' ? (rec.className || rec.department || 'Staff') : parsed.className,
+              section: rec.entityType === 'Staff' ? (rec.section || 'A') : parsed.section,
+            };
+          });
+          setAttendanceRecords(normalized);
         } else {
           const today = new Date().toISOString().split('T')[0];
           const stdAtt: AttendanceRecord[] = students.map((s, idx) => ({

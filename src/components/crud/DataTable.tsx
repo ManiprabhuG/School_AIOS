@@ -119,7 +119,21 @@ export function DataTable<T extends { id: string; isDeleted?: boolean }>({
       // Filter check
       for (const [key, val] of Object.entries(filters)) {
         if (val && val !== 'All') {
-          if (String((item as any)[key]) !== val) return false;
+          const rawVal = (item as any)[key];
+          const itemVal = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : '';
+
+          if (key === 'className') {
+            const parsedCls = itemVal.split('-')[0].trim();
+            if (parsedCls !== val && itemVal.toLowerCase() !== val.toLowerCase()) return false;
+          } else if (key === 'section') {
+            let parsedSec = itemVal;
+            if (!parsedSec && String((item as any).className || '').includes('-')) {
+              parsedSec = String((item as any).className).split('-')[1]?.trim() || '';
+            }
+            if (parsedSec.toLowerCase() !== val.toLowerCase()) return false;
+          } else {
+            if (itemVal !== val) return false;
+          }
         }
       }
 
