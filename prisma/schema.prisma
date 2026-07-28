@@ -364,6 +364,8 @@ model AttendanceRecord {
   entityType String   // Student | Staff
   name       String
   className  String?
+  staffType  String?  // Teaching | Non-Teaching
+  department String?  // Science, Math, etc. (for Teaching staff)
   status     String   // Present | Absent | Late | Half Day | Leave
   timeIn     String?
   timeOut    String?

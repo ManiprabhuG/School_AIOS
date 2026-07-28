@@ -35,20 +35,18 @@ export default function AttendancePage() {
             name: s.name,
             className: `${s.className}-${s.section}`,
             status: idx % 4 === 0 ? 'Absent' : idx % 5 === 0 ? 'Late' : 'Present',
-            timeIn: '08:00 AM',
-            timeOut: '02:30 PM',
-            remarks: idx % 4 === 0 ? 'Parent informed via SMS' : 'On time',
+            remarks: idx % 4 === 0 ? 'Parent informed via SMS' : 'Present in class',
           }));
           const stfAtt: AttendanceRecord[] = staff.map((st, idx) => ({
             id: `att-stf-${st.id}`,
             date: today,
             entityId: st.id,
             entityType: 'Staff',
+            staffType: idx % 2 === 0 ? 'Teaching' : 'Non-Teaching',
+            department: st.department || 'Mathematics',
             name: st.name,
             className: st.department,
             status: idx === 1 ? 'Leave' : 'Present',
-            timeIn: '07:45 AM',
-            timeOut: '04:00 PM',
             remarks: idx === 1 ? 'Casual Leave Approved' : 'Present in school campus',
           }));
           setAttendanceRecords([...stdAtt, ...stfAtt]);
@@ -85,21 +83,66 @@ export default function AttendancePage() {
   };
 
   const attendanceFields: FieldConfig[] = [
-    { name: 'date', label: 'Attendance Date', type: 'date' },
+    {
+      name: 'date',
+      label: 'Attendance Date *',
+      type: 'date',
+      defaultValue: new Date().toISOString().split('T')[0],
+    },
     {
       name: 'entityType',
-      label: 'Person Category',
+      label: 'Person Category *',
       type: 'select',
       options: [
         { label: 'Student', value: 'Student' },
         { label: 'Staff', value: 'Staff' },
       ],
     },
-    { name: 'name', label: 'Full Name', type: 'text' },
-    { name: 'className', label: 'Class or Department', type: 'text' },
+    {
+      name: 'staffType',
+      label: 'Staff Type *',
+      type: 'select',
+      options: [
+        { label: 'Teaching', value: 'Teaching' },
+        { label: 'Non-Teaching', value: 'Non-Teaching' },
+      ],
+      hidden: (formData) => formData.entityType !== 'Staff',
+    },
+    {
+      name: 'department',
+      label: 'Department * (Teaching Staff)',
+      type: 'select',
+      options: [
+        { label: 'Mathematics', value: 'Mathematics' },
+        { label: 'Science & Physics', value: 'Science & Physics' },
+        { label: 'English & Literature', value: 'English & Literature' },
+        { label: 'Computer Science & IT', value: 'Computer Science & IT' },
+        { label: 'Languages & Tamil/Hindi', value: 'Languages & Tamil/Hindi' },
+        { label: 'Social Studies & History', value: 'Social Studies & History' },
+        { label: 'Physical Education & Sports', value: 'Physical Education & Sports' },
+        { label: 'Arts & Music', value: 'Arts & Music' },
+      ],
+      // Department is ONLY shown when Person Category is Staff AND Staff Type is Teaching!
+      hidden: (formData) => formData.entityType !== 'Staff' || formData.staffType !== 'Teaching',
+    },
+    {
+      name: 'name',
+      label: 'Full Name *',
+      type: 'text',
+      placeholder: 'Click cursor to select or type name...',
+    },
+    {
+      name: 'className',
+      label: 'Class & Section (Students)',
+      type: 'select',
+      options: ['LKG-A', 'UKG-A', '1st-A', '2nd-A', '3rd-A', '4th-A', '5th-A', '6th-A', '7th-A', '8th-A', '9th-A', '10th-A', '11th-A', '12th-A'].map(
+        (c) => ({ label: `Class ${c}`, value: c })
+      ),
+      hidden: (formData) => formData.entityType === 'Staff',
+    },
     {
       name: 'status',
-      label: 'Attendance Status',
+      label: 'Attendance Status *',
       type: 'select',
       options: [
         { label: 'Present', value: 'Present' },
@@ -109,32 +152,61 @@ export default function AttendancePage() {
         { label: 'Leave', value: 'Leave' },
       ],
     },
-    { name: 'timeIn', label: 'Check-In Time (e.g. 08:05 AM)', type: 'text' },
-    { name: 'timeOut', label: 'Check-Out Time (e.g. 02:30 PM)', type: 'text' },
-    { name: 'remarks', label: 'Attendance Remarks', type: 'textarea', colSpan: 2 },
+    {
+      name: 'remarks',
+      label: 'Attendance Remarks',
+      type: 'textarea',
+      colSpan: 2,
+      placeholder: 'e.g. Present in campus / Approved Leave / Parent informed',
+    },
   ];
 
   const columns: Column<AttendanceRecord>[] = [
-    { key: 'date', header: 'Date', sortable: true },
+    {
+      key: 'date',
+      header: 'Date',
+      sortable: true,
+      render: (a) => (
+        <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
+          {a.date || new Date().toISOString().split('T')[0]}
+        </span>
+      ),
+    },
     {
       key: 'name',
       header: 'Name',
       sortable: true,
       render: (a) => (
         <div>
-          <p className="font-bold text-slate-800 dark:text-slate-100">{a.name}</p>
+          <p className="font-extrabold text-slate-900 dark:text-slate-100">{a.name}</p>
           <span className="text-[10px] text-blue-600 font-semibold">{a.entityType}</span>
         </div>
       ),
     },
-    { key: 'className', header: 'Class / Department', sortable: true },
+    {
+      key: 'className',
+      header: 'Class / Staff Details',
+      sortable: true,
+      render: (a) => (
+        <div className="text-xs">
+          {a.entityType === 'Staff' ? (
+            <div>
+              <span className="font-bold text-slate-900 dark:text-slate-100">{a.staffType || 'Staff'}</span>
+              {a.department && <span className="text-slate-500 block text-[11px]">Dept: {a.department}</span>}
+            </div>
+          ) : (
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{a.className}</span>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'status',
       header: 'Attendance Status',
       sortable: true,
       render: (a) => (
         <span
-          className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+          className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold ${
             a.status === 'Present'
               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
               : a.status === 'Absent'
@@ -148,8 +220,6 @@ export default function AttendancePage() {
         </span>
       ),
     },
-    { key: 'timeIn', header: 'Time In' },
-    { key: 'timeOut', header: 'Time Out' },
     { key: 'remarks', header: 'Remarks' },
   ];
 
@@ -189,12 +259,14 @@ export default function AttendancePage() {
           key: 'department',
           label: 'Department',
           options: [
-            { label: 'Science', value: 'Science' },
+            { label: 'Science & Physics', value: 'Science & Physics' },
             { label: 'Mathematics', value: 'Mathematics' },
-            { label: 'English', value: 'English' },
-            { label: 'Administration', value: 'Administration' },
-            { label: 'Primary', value: 'Primary' },
-            { label: 'Sports', value: 'Sports' },
+            { label: 'English & Literature', value: 'English & Literature' },
+            { label: 'Computer Science & IT', value: 'Computer Science & IT' },
+            { label: 'Languages & Tamil/Hindi', value: 'Languages & Tamil/Hindi' },
+            { label: 'Social Studies & History', value: 'Social Studies & History' },
+            { label: 'Physical Education & Sports', value: 'Physical Education & Sports' },
+            { label: 'Arts & Music', value: 'Arts & Music' },
           ],
         },
         statusFilterOption,
@@ -272,13 +344,13 @@ export default function AttendancePage() {
       const newAtt: AttendanceRecord = {
         id: `att-${Date.now()}`,
         date: data.date || new Date().toISOString().split('T')[0],
-        entityId: `ent-${Date.now()}`,
+        entityId: data.entityId || `ent-${Date.now()}`,
         entityType: data.entityType || 'Student',
+        staffType: data.staffType || undefined,
+        department: data.department || undefined,
         name: data.name,
         className: data.className || '',
         status: data.status || 'Present',
-        timeIn: data.timeIn || '08:00 AM',
-        timeOut: data.timeOut || '02:30 PM',
         remarks: data.remarks || '',
       };
       setAttendanceRecords([newAtt, ...attendanceRecords]);
