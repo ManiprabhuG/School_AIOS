@@ -3,9 +3,13 @@
 import React from 'react';
 import { School, ShieldCheck, QrCode } from 'lucide-react';
 
+import { useUIStore } from '@/store/ui-store';
+
 export interface TemplateBranding {
   schoolName: string;
   schoolAddress: string;
+  pincode?: string;
+  gstin?: string;
   contactNumber: string;
   email: string;
   website: string;
@@ -17,7 +21,9 @@ export interface TemplateBranding {
 
 export const defaultBranding: TemplateBranding = {
   schoolName: 'ABS MATRICULATION HIGHER SECONDARY SCHOOL',
-  schoolAddress: '124, Education Boulevard, Knowledge City, Chennai - 600001, Tamil Nadu',
+  schoolAddress: '124, Education Boulevard, Knowledge City, Chennai, Tamil Nadu',
+  pincode: '600001',
+  gstin: '33AAAAA0000A1Z5',
   contactNumber: '+91 44 2800 1122 / +91 98765 43210',
   email: 'info@absschool.edu.in',
   website: 'www.absschool.edu.in',
@@ -36,19 +42,38 @@ interface HeaderProps {
 }
 
 export function PrintableHeader({
-  branding = defaultBranding,
+  branding: initialBranding,
   documentTitle,
   docNumber,
   generatedDate = new Date().toLocaleString('en-IN'),
   generatedBy = 'System Admin',
   isThermal = false,
 }: HeaderProps) {
+  const companyProfile = useUIStore((state) => state.companyProfile);
+
+  const branding: TemplateBranding = {
+    schoolName: companyProfile?.schoolName || initialBranding?.schoolName || defaultBranding.schoolName,
+    schoolAddress: companyProfile?.address || initialBranding?.schoolAddress || defaultBranding.schoolAddress,
+    pincode: companyProfile?.pincode || initialBranding?.pincode || defaultBranding.pincode,
+    gstin: companyProfile?.gstin || initialBranding?.gstin || defaultBranding.gstin,
+    contactNumber: companyProfile?.phone || initialBranding?.contactNumber || defaultBranding.contactNumber,
+    email: companyProfile?.email || initialBranding?.email || defaultBranding.email,
+    website: companyProfile?.website || initialBranding?.website || defaultBranding.website,
+    logoUrl: companyProfile?.schoolLogo || initialBranding?.logoUrl || defaultBranding.logoUrl,
+    academicYear: companyProfile?.academicYear || initialBranding?.academicYear || defaultBranding.academicYear,
+    watermarkText: initialBranding?.watermarkText || defaultBranding.watermarkText,
+    authorizedSignatoryTitle: companyProfile?.authorizedSignatoryTitle || initialBranding?.authorizedSignatoryTitle || defaultBranding.authorizedSignatoryTitle,
+  };
+
   if (isThermal) {
     return (
       <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-400 text-black">
+        {branding.logoUrl && (
+          <img src={branding.logoUrl} alt="Logo" className="w-10 h-10 object-contain mx-auto mb-1" />
+        )}
         <h2 className="font-extrabold text-sm uppercase tracking-tight">{branding.schoolName}</h2>
-        <p className="text-[10px] leading-tight">{branding.schoolAddress}</p>
-        <p className="text-[10px]">Ph: {branding.contactNumber}</p>
+        <p className="text-[10px] leading-tight">{branding.schoolAddress} {branding.pincode ? `- ${branding.pincode}` : ''}</p>
+        <p className="text-[10px]">Ph: {branding.contactNumber} {branding.gstin ? `| GSTIN: ${branding.gstin}` : ''}</p>
         <div className="pt-1 font-bold text-xs uppercase tracking-wide border-t border-slate-300 mt-1">
           *** {documentTitle} ***
         </div>
@@ -66,7 +91,7 @@ export function PrintableHeader({
         {/* Left: School Logo & Title */}
         <div className="flex items-center gap-3">
           {branding.logoUrl ? (
-            <img src={branding.logoUrl} alt="Logo" className="w-14 h-14 object-contain" />
+            <img src={branding.logoUrl} alt="School Logo" className="w-16 h-16 object-contain shrink-0" />
           ) : (
             <div className="w-14 h-14 rounded-2xl bg-slate-950 text-white flex items-center justify-center font-extrabold shadow-sm shrink-0 border border-slate-950">
               <School className="w-8 h-8 text-white" />
@@ -77,10 +102,10 @@ export function PrintableHeader({
               {branding.schoolName}
             </h1>
             <p className="text-xs font-bold text-slate-900 max-w-lg leading-snug">
-              {branding.schoolAddress}
+              {branding.schoolAddress} {branding.pincode ? ` - ${branding.pincode}` : ''}
             </p>
             <p className="text-xs font-black text-slate-950 mt-0.5">
-              Phone: {branding.contactNumber} | Email: {branding.email}
+              Phone: {branding.contactNumber} | Email: {branding.email} {branding.gstin ? ` | GSTIN: ${branding.gstin}` : ''}
             </p>
           </div>
         </div>

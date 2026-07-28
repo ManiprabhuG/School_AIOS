@@ -66,16 +66,35 @@ export function exportToPDF(
   doc.save(`${filename}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
+import { useUIStore, defaultCompanyProfile } from '@/store/ui-store';
+
 export function printData(title: string, columns: { header: string; dataKey: string }[], data: Record<string, any>[]) {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
-  const headersHtml = columns.map((c) => `<th style="padding:10px; border:1.5px solid #000000; background:#0f172a; color:#ffffff; font-weight:800; text-align:left; text-transform:uppercase;">${c.header}</th>`).join('');
+  const profile = useUIStore.getState().companyProfile || defaultCompanyProfile;
+
+  const logoHtml = profile.schoolLogo
+    ? `<img src="${profile.schoolLogo}" style="height:54px; max-width:140px; object-fit:contain;" />`
+    : '';
+
+  const headersHtml = columns
+    .map(
+      (c) =>
+        `<th style="padding:10px; border:1.5px solid #000000; background:#0f172a; color:#ffffff; font-weight:800; text-align:left; text-transform:uppercase;">${c.header}</th>`
+    )
+    .join('');
+
   const rowsHtml = data
     .map(
       (row, idx) =>
         `<tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">${columns
-          .map((c) => `<td style="padding:8px; border:1px solid #000000; color:#000000; font-weight:600;">${row[c.dataKey] ?? ''}</td>`)
+          .map(
+            (c) =>
+              `<td style="padding:8px; border:1px solid #000000; color:#000000; font-weight:600;">${
+                row[c.dataKey] ?? ''
+              }</td>`
+          )
           .join('')}</tr>`
     )
     .join('');
@@ -84,12 +103,15 @@ export function printData(title: string, columns: { header: string; dataKey: str
     <!DOCTYPE html>
     <html>
       <head>
-        <title>${title}</title>
+        <title>${title} - ${profile.schoolName}</title>
         <style>
           body { font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #000000; background: #ffffff; }
-          h2 { font-size: 22px; color: #000000; margin-bottom: 4px; font-weight: 900; }
-          p { font-size: 11px; color: #000000; margin-bottom: 20px; font-weight: 700; border-bottom: 2px solid #000000; padding-bottom: 8px; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; border: 2px solid #000000; }
+          .header-box { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+          .company-title { font-size: 20px; font-weight: 900; text-transform: uppercase; margin: 0; color: #0f172a; }
+          .company-address { font-size: 11px; font-weight: 700; color: #334155; margin-top: 2px; }
+          .company-meta { font-size: 11px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+          .doc-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin-bottom: 12px; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; border: 2px solid #000000; }
           @media print {
             body { padding: 0; background: #ffffff !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -97,12 +119,27 @@ export function printData(title: string, columns: { header: string; dataKey: str
         </style>
       </head>
       <body>
-        <h2>${title}</h2>
-        <p>ABS School ERP Official Printout — ${new Date().toLocaleString()}</p>
+        <div class="header-box">
+          <div style="display:flex; align-items:center; gap:14px;">
+            ${logoHtml}
+            <div>
+              <h1 class="company-title">${profile.schoolName}</h1>
+              <div class="company-address">${profile.address}${profile.pincode ? ` - ${profile.pincode}` : ''}</div>
+              <div class="company-meta">Ph: ${profile.phone} | Email: ${profile.email}${profile.gstin ? ` | GSTIN: ${profile.gstin}` : ''}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px; font-weight:900; background:#0f172a; color:#ffffff; padding:4px 10px; border-radius:4px; text-transform:uppercase;">${title}</div>
+            <div style="font-size:10px; font-weight:700; margin-top:4px;">Date: ${new Date().toLocaleString('en-IN')}</div>
+          </div>
+        </div>
         <table>
           <thead><tr>${headersHtml}</tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
+        <div style="margin-top:20px; text-align:right; font-size:11px; font-weight:800; border-top:1px solid #cbd5e1; padding-top:8px;">
+          ${profile.authorizedSignatoryTitle || 'Authorized Signatory'} — ${profile.schoolName}
+        </div>
         <script>
           window.onload = function() { window.print(); window.close(); }
         </script>
