@@ -332,24 +332,6 @@ export default function AttendancePage() {
       if (!saveAndNew) setIsAddModalOpen(false);
     }
   };
-      try {
-        const res = await fetch('/api/attendance', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newAtt),
-        });
-        const resJson = await res.json();
-        if (resJson.success && resJson.data) {
-          setAttendanceRecords((prev) =>
-            prev.map((item) => (item.id === newAtt.id ? { ...item, ...resJson.data } : item))
-          );
-        }
-      } catch (err) {
-        console.error('Failed to save attendance to DB:', err);
-      }
-      if (!saveAndNew) setIsAddModalOpen(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
