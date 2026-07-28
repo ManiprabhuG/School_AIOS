@@ -27,33 +27,67 @@ export async function GET() {
   }
 }
 
+const ALLOWED_STUDENT_FIELDS = [
+  'admissionNo',
+  'rollNo',
+  'firstName',
+  'lastName',
+  'name',
+  'className',
+  'section',
+  'course',
+  'dob',
+  'gender',
+  'bloodGroup',
+  'photo',
+  'fatherName',
+  'motherName',
+  'parentPhone',
+  'parentEmail',
+  'address',
+  'busRoute',
+  'feeStatus',
+  'totalFees',
+  'paidFees',
+  'dueFees',
+  'attendancePercent',
+  'medicalInfo',
+  'joiningDate',
+];
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const timestamp = Date.now();
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const uniqueAdmissionNo = body.admissionNo || `ABS-${new Date().getFullYear()}-${timestamp.toString().slice(-4)}${randomNum}`;
+
     const studentData = {
-      id: body.id || `std-${Date.now()}`,
-      admissionNo: body.admissionNo || `ADM-2026-${Date.now().toString().slice(-4)}`,
+      id: body.id || `std-${timestamp}`,
+      admissionNo: String(uniqueAdmissionNo),
       rollNo: String(body.rollNo || '101'),
-      firstName: body.firstName || body.name?.split(' ')[0] || 'Student',
-      lastName: body.lastName || body.name?.split(' ')[1] || 'Name',
-      name: body.name || `${body.firstName || ''} ${body.lastName || ''}`.trim() || 'Student Name',
+      firstName: String(body.firstName || body.name?.split(' ')[0] || 'Student'),
+      lastName: String(body.lastName || body.name?.split(' ')[1] || 'Name'),
+      name: String(body.name || `${body.firstName || ''} ${body.lastName || ''}`.trim() || 'Student Name'),
       className: String(body.className || '10th'),
       section: String(body.section || 'A'),
-      course: body.course || null,
+      course: body.course ? String(body.course) : null,
       dob: String(body.dob || '2010-01-01'),
       gender: String(body.gender || 'Male'),
-      bloodGroup: body.bloodGroup || 'O+',
-      fatherName: body.fatherName || 'Father Name',
-      motherName: body.motherName || 'Mother Name',
+      bloodGroup: String(body.bloodGroup || 'O+'),
+      photo: body.photo ? String(body.photo) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      fatherName: String(body.fatherName || 'Father Name'),
+      motherName: String(body.motherName || 'Mother Name'),
       parentPhone: String(body.parentPhone || '9876543210'),
-      parentEmail: body.parentEmail || 'parent@example.com',
-      address: body.address || 'Address Details',
-      busRoute: body.busRoute || 'Self Transport',
-      feeStatus: body.feeStatus || 'Pending',
+      parentEmail: String(body.parentEmail || 'parent@example.com'),
+      address: String(body.address || 'Address Details'),
+      busRoute: String(body.busRoute || 'Self Transport'),
+      feeStatus: String(body.feeStatus || 'Pending'),
       totalFees: Number(body.totalFees) || 0,
       paidFees: Number(body.paidFees) || 0,
       dueFees: Number(body.dueFees) || 0,
       attendancePercent: Number(body.attendancePercent) || 0,
+      medicalInfo: body.medicalInfo ? String(body.medicalInfo) : null,
       joiningDate: String(body.joiningDate || new Date().toISOString().split('T')[0]),
     };
 
@@ -77,7 +111,7 @@ export async function POST(request: Request) {
     store.addRecord('students', studentData);
     return NextResponse.json({ success: true, data: studentData }, { status: 201 });
   } catch (error: any) {
-    console.error('Failed to create student:', error);
+    console.error('Failed to create student in database:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Failed to create student' }, { status: 500 });
   }
 }
@@ -88,9 +122,16 @@ export async function PUT(request: Request) {
     const { id, ...updates } = body;
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
-    const dbUpdates: any = { ...updates };
-    if (dbUpdates.status === 'Active') dbUpdates.status = 'ACTIVE';
-    if (dbUpdates.status === 'Transferred' || dbUpdates.status === 'Inactive') dbUpdates.status = 'INACTIVE';
+    const dbUpdates: any = {};
+    for (const key of ALLOWED_STUDENT_FIELDS) {
+      if (updates[key] !== undefined) {
+        dbUpdates[key] = updates[key];
+      }
+    }
+
+    if (updates.status) {
+      dbUpdates.status = updates.status === 'Active' ? 'ACTIVE' : updates.status === 'Transferred' || updates.status === 'Inactive' ? 'INACTIVE' : 'ACTIVE';
+    }
 
     if (isDbConnected()) {
       await db.student.update({
@@ -103,8 +144,9 @@ export async function PUT(request: Request) {
     const store = useCrudStore.getState();
     store.updateRecord('students', id, updates);
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to update student' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Failed to update student in database:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to update student' }, { status: 500 });
   }
 }
 

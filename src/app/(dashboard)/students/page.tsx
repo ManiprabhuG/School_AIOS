@@ -244,11 +244,15 @@ export default function StudentManagementPage() {
       addRecord('students', newStudent);
 
       try {
-        await fetch('/api/students', {
+        const res = await fetch('/api/students', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newStudent),
         });
+        const resJson = await res.json();
+        if (resJson.success && resJson.data) {
+          updateRecord('students', newStudent.id, resJson.data);
+        }
       } catch (err) {
         console.error('Failed to save student to database:', err);
       }
