@@ -251,7 +251,7 @@ export default function FeesPage() {
               admissionNo: std?.admissionNo || p.studentId || 'ADM-2026-101',
               className: p.className || '10th',
               section: std?.section || 'A',
-              parentName: std?.parentName || 'Parent / Guardian',
+              parentName: std?.fatherName || std?.parentName || 'Parent / Guardian',
               paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
               paymentMethod: p.paymentMode || 'Cash/UPI',
               cashierName: p.collectedBy || 'Finance Cashier',

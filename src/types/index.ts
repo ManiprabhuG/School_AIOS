@@ -71,6 +71,7 @@ export interface Student extends BaseAuditEntity {
   photo: string;
   fatherName: string;
   motherName: string;
+  parentName?: string;
   parentPhone: string;
   parentEmail: string;
   address: string;
