@@ -146,7 +146,7 @@ export interface FeePayment extends BaseAuditEntity {
   dueAmount?: number;
   paymentMode: 'Cash' | 'Card' | 'UPI' | 'Bank Transfer' | 'Cheque';
   paymentDate: string;
-  feeCategory: 'Tuition' | 'Transport' | 'Exam' | 'Uniform' | 'Books' | 'Other';
+  feeCategory: 'Tuition' | 'Transport' | 'Exam' | 'Uniform' | 'Books' | 'Admission' | 'Lab' | 'Other' | string;
   status: 'Success' | 'Pending' | 'Failed';
   collectedBy: string;
 }

@@ -145,7 +145,7 @@ export default function FeesPage() {
     );
 
     const fs = feeStructures.find((f) => f.className === p.className);
-    const category = p.feeCategory || 'Tuition';
+    const category: string = String(p.feeCategory || 'Tuition');
     let defaultCategoryFee = 60000;
     if (fs) {
       if (category === 'Tuition') defaultCategoryFee = fs.tuitionFee;
@@ -280,7 +280,7 @@ export default function FeesPage() {
     const collectedAmt = Number(data.amount) || 0;
 
     // Determine expected total amount for category/class
-    const category = data.feeCategory || 'Tuition';
+    const category: string = String(data.feeCategory || 'Tuition');
     const fs = feeStructures.find((f) => f.className === data.className);
     let expectedAmt = collectedAmt;
     if (fs) {
@@ -398,14 +398,7 @@ export default function FeesPage() {
   };
 
   const handlePrintReceipt = (p: FeePayment) => {
-    const std = students.find((s) => s.id === p.studentId || s.name === p.studentName);
-    const dueAmt =
-      p.dueAmount !== undefined
-        ? p.dueAmount
-        : p.totalAmount && p.totalAmount > p.amount
-        ? p.totalAmount - p.amount
-        : std?.dueFees || 0;
-    const fullFee = p.totalAmount || (p.amount + dueAmt);
+    const { totalFee, dueAmt, std } = getPaymentDueInfo(p);
 
     exportToPDF(
       `Fee_Receipt_${p.receiptNo}`,
@@ -418,7 +411,7 @@ export default function FeesPage() {
         { field: 'Receipt Number', value: p.receiptNo },
         { field: 'Student Name', value: p.studentName },
         { field: 'Class', value: p.className },
-        { field: 'Total Standard Fee', value: formatCurrency(fullFee) },
+        { field: 'Total Standard Fee', value: formatCurrency(totalFee) },
         { field: 'Amount Collected', value: formatCurrency(p.amount) },
         { field: 'Remaining Pending Due', value: dueAmt > 0 ? formatCurrency(dueAmt) : 'Nil (Fully Paid)' },
         { field: 'Fee Category', value: p.feeCategory },
@@ -444,7 +437,7 @@ export default function FeesPage() {
       targetClass = newValue;
     }
 
-    const category = currentData.feeCategory || 'Tuition';
+    const category: string = String(currentData.feeCategory || 'Tuition');
     const fs = feeStructures.find((f) => f.className === targetClass || f.className === updates.className);
 
     if (fs) {
