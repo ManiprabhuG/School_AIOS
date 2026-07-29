@@ -6,6 +6,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import GlobalSearchModal from '@/components/layout/GlobalSearchModal';
 import NotificationDrawer from '@/components/layout/NotificationDrawer';
+import IdleSessionListener from '@/components/layout/IdleSessionListener';
 import { useUIStore, applyThemeToDOM } from '@/store/ui-store';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -86,6 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar />
       <GlobalSearchModal />
       <NotificationDrawer />
+      <IdleSessionListener />
 
       <div
         className={`flex-1 flex flex-col transition-all duration-300 ${

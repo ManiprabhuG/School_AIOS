@@ -141,6 +141,12 @@ const dummyStorage = {
   removeItem: () => {},
 };
 
+const notifyUserActivity = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('app-user-activity'));
+  }
+};
+
 export const useCrudStore = create<CrudState>()(
   persist(
     (set, get) => ({
@@ -166,6 +172,7 @@ export const useCrudStore = create<CrudState>()(
       rolePermissions: initialRolePermissions,
 
       logAudit: (log) => {
+        notifyUserActivity();
         const newLog: AuditLog = {
           ...log,
           id: `aud-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -175,6 +182,7 @@ export const useCrudStore = create<CrudState>()(
       },
 
       addRecord: (entity, item) => {
+        notifyUserActivity();
         const now = new Date().toISOString().split('T')[0];
         const record = {
           ...item,
@@ -219,6 +227,7 @@ export const useCrudStore = create<CrudState>()(
       },
 
       updateRecord: (entity, id, updates) => {
+        notifyUserActivity();
         const now = new Date().toISOString().split('T')[0];
         set((state) => ({
           [entity]: (state[entity] as any[]).map((item) =>

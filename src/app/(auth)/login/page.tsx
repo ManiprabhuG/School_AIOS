@@ -14,9 +14,19 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
 
   const { loginWithCredentials, setUserSession } = useAuthStore();
   const router = useRouter();
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('reason') === 'session_expired') {
+        setSessionExpiredNotice(true);
+      }
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +100,14 @@ export default function LoginPage() {
           <h1 className="text-2xl font-extrabold text-white tracking-tight">ABS School Management ERP</h1>
           <p className="text-xs text-slate-400 font-medium">Enterprise Authentication Portal</p>
         </div>
+
+        {/* Session Expired Alert Message */}
+        {sessionExpiredNotice && (
+          <div className="p-3 bg-amber-950/80 border border-amber-800/80 rounded-2xl text-xs text-amber-300 font-medium flex items-center gap-2.5 animate-in fade-in shadow-sm">
+            <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>🔒 Security Alert: Session expired due to 10 minutes of inactivity. Please log in again.</span>
+          </div>
+        )}
 
         {/* Error Alert Message */}
         {errorMessage && (
