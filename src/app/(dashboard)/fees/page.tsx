@@ -216,24 +216,36 @@ export default function FeesPage() {
         <button
           onClick={(e) => {
             e.stopPropagation();
+            const std = students.find((s) => s.id === p.studentId || s.name === p.studentName);
+            const dueAmt =
+              p.dueAmount !== undefined
+                ? p.dueAmount
+                : p.totalAmount && p.totalAmount > p.amount
+                ? p.totalAmount - p.amount
+                : std?.dueFees || 0;
+            const fullFee = p.totalAmount || (p.amount + dueAmt);
+
             setPrintReceiptData({
               receiptNumber: p.receiptNo || `RCP-${p.id}`,
               title: 'OFFICIAL SCHOOL FEE RECEIPT',
               studentName: p.studentName,
-              admissionNo: p.studentId || 'ADM-2026-101',
+              admissionNo: std?.admissionNo || p.studentId || 'ADM-2026-101',
               className: p.className || '10th',
-              section: 'A',
-              parentName: 'Parent / Guardian',
+              section: std?.section || 'A',
+              parentName: std?.parentName || 'Parent / Guardian',
               paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
               paymentMethod: p.paymentMode || 'Cash/UPI',
               cashierName: p.collectedBy || 'Finance Cashier',
               items: [
                 { name: `${p.feeCategory} Fee Payment`, amount: p.amount },
               ],
-              subtotal: p.amount,
+              subtotal: fullFee,
               totalAmount: p.amount,
-              remainingBalance: p.dueAmount || 0,
-              notes: 'Payment received with thanks.',
+              remainingBalance: dueAmt,
+              notes:
+                dueAmt > 0
+                  ? `Partial payment collected. Pending due amount of ${formatCurrency(dueAmt)} remaining.`
+                  : 'Full payment received with thanks.',
             });
           }}
           className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm active:scale-95"
@@ -314,6 +326,8 @@ export default function FeesPage() {
             section: selectedStd?.section || 'A',
             feeType: newPay.feeCategory,
             amountPaid: newPay.amount,
+            totalAmount: newPay.totalAmount,
+            dueAmount: newPay.dueAmount,
             paymentDate: newPay.paymentDate,
             paymentMode: newPay.paymentMode,
             cashier: newPay.collectedBy,
@@ -365,6 +379,15 @@ export default function FeesPage() {
   };
 
   const handlePrintReceipt = (p: FeePayment) => {
+    const std = students.find((s) => s.id === p.studentId || s.name === p.studentName);
+    const dueAmt =
+      p.dueAmount !== undefined
+        ? p.dueAmount
+        : p.totalAmount && p.totalAmount > p.amount
+        ? p.totalAmount - p.amount
+        : std?.dueFees || 0;
+    const fullFee = p.totalAmount || (p.amount + dueAmt);
+
     exportToPDF(
       `Fee_Receipt_${p.receiptNo}`,
       `FEE RECEIPT — ${p.receiptNo}`,
@@ -376,7 +399,9 @@ export default function FeesPage() {
         { field: 'Receipt Number', value: p.receiptNo },
         { field: 'Student Name', value: p.studentName },
         { field: 'Class', value: p.className },
+        { field: 'Total Standard Fee', value: formatCurrency(fullFee) },
         { field: 'Amount Collected', value: formatCurrency(p.amount) },
+        { field: 'Remaining Pending Due', value: dueAmt > 0 ? formatCurrency(dueAmt) : 'Nil (Fully Paid)' },
         { field: 'Fee Category', value: p.feeCategory },
         { field: 'Payment Mode', value: p.paymentMode },
         { field: 'Payment Date', value: p.paymentDate },

@@ -12,10 +12,16 @@ export async function GET() {
       });
 
       const mapped = payments.map((p) => ({
-        ...p,
+        id: p.id,
+        receiptNo: p.receiptNo,
+        studentId: p.studentId,
+        studentName: p.studentName,
+        className: p.className,
         amount: p.amountPaid || (p as any).amount || 0,
         feeCategory: p.feeType || (p as any).feeCategory || 'Tuition',
         collectedBy: p.cashier || (p as any).collectedBy || 'Accounts Desk',
+        paymentDate: p.paymentDate,
+        paymentMode: p.paymentMode,
         status: p.status === 'Completed' ? 'Success' : p.status,
       }));
 
@@ -50,12 +56,14 @@ export async function POST(request: Request) {
 
     if (isDbConnected()) {
       const created = await db.feePayment.create({
-        data: dataObj as any,
+        data: dataObj,
       });
 
       const mapped = {
         ...created,
         amount: created.amountPaid,
+        totalAmount: body.totalAmount,
+        dueAmount: body.dueAmount,
         feeCategory: created.feeType,
         collectedBy: created.cashier,
         status: created.status === 'Completed' ? 'Success' : created.status,
@@ -65,8 +73,8 @@ export async function POST(request: Request) {
     }
 
     const store = useCrudStore.getState();
-    store.addRecord('feePayments', dataObj);
-    return NextResponse.json({ success: true, data: dataObj }, { status: 201 });
+    store.addRecord('feePayments', body);
+    return NextResponse.json({ success: true, data: body }, { status: 201 });
   } catch (error: any) {
     console.error('Failed to record fee payment:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Failed to record fee payment' }, { status: 500 });
@@ -76,28 +84,46 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, amount, feeCategory, collectedBy, ...updates } = body;
+    const id = body.id;
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
-    const dbUpdates: any = { ...updates };
-    if (amount !== undefined) dbUpdates.amountPaid = Number(amount);
-    if (feeCategory) dbUpdates.feeType = feeCategory;
-    if (collectedBy) dbUpdates.cashier = collectedBy;
-    if (dbUpdates.status === 'Success') dbUpdates.status = 'Completed';
+    const validDbFields: Record<string, any> = {};
+    if (body.receiptNo !== undefined) validDbFields.receiptNo = String(body.receiptNo);
+    if (body.studentId !== undefined) validDbFields.studentId = String(body.studentId);
+    if (body.studentName !== undefined) validDbFields.studentName = String(body.studentName);
+    if (body.admissionNo !== undefined) validDbFields.admissionNo = String(body.admissionNo);
+    if (body.className !== undefined) validDbFields.className = String(body.className);
+    if (body.section !== undefined) validDbFields.section = String(body.section);
+    if (body.feeCategory !== undefined || body.feeType !== undefined) validDbFields.feeType = String(body.feeCategory || body.feeType);
+    if (body.amount !== undefined || body.amountPaid !== undefined) validDbFields.amountPaid = Number(body.amount ?? body.amountPaid);
+    if (body.paymentDate !== undefined) validDbFields.paymentDate = String(body.paymentDate);
+    if (body.paymentMode !== undefined) validDbFields.paymentMode = String(body.paymentMode);
+    if (body.collectedBy !== undefined || body.cashier !== undefined) validDbFields.cashier = String(body.collectedBy || body.cashier);
+    if (body.status !== undefined) validDbFields.status = body.status === 'Success' ? 'Completed' : String(body.status);
 
     if (isDbConnected()) {
-      await db.feePayment.update({
+      const updated = await db.feePayment.update({
         where: { id },
-        data: dbUpdates,
+        data: validDbFields,
       });
-      return NextResponse.json({ success: true });
+      const mapped = {
+        ...updated,
+        amount: updated.amountPaid,
+        totalAmount: body.totalAmount,
+        dueAmount: body.dueAmount,
+        feeCategory: updated.feeType,
+        collectedBy: updated.cashier,
+        status: updated.status === 'Completed' ? 'Success' : updated.status,
+      };
+      return NextResponse.json({ success: true, data: mapped });
     }
 
     const store = useCrudStore.getState();
-    store.updateRecord('feePayments', id, updates);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to update fee payment' }, { status: 500 });
+    store.updateRecord('feePayments', id, body);
+    return NextResponse.json({ success: true, data: body });
+  } catch (error: any) {
+    console.error('Failed to update fee payment:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to update fee payment' }, { status: 500 });
   }
 }
 
