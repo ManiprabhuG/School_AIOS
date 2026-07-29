@@ -290,7 +290,7 @@ export interface AuditLog {
   userId: string;
   userName: string;
   userRole: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'SOFT_DELETE' | 'RESTORE' | 'BULK_DELETE' | 'BULK_UPDATE' | 'IMPORT';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'SOFT_DELETE' | 'RESTORE' | 'BULK_DELETE' | 'BULK_UPDATE' | 'IMPORT' | 'SESSION_EXPIRED_TIMEOUT' | string;
   module: string;
   recordId: string;
   details: string;

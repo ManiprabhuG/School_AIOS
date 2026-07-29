@@ -57,9 +57,12 @@ export default function IdleSessionListener() {
         // Log Session Expiry Audit Event
         try {
           logAudit({
-            entityType: 'auditLogs',
+            userId: user?.id || 'usr-session',
+            userName: user?.name || 'User',
+            userRole: user?.role || 'Guest',
             action: 'SESSION_EXPIRED_TIMEOUT',
-            actorName: user?.name || 'User',
+            module: 'Security',
+            recordId: user?.id || 'session',
             details: `User session automatically terminated due to 10 minutes of complete inactivity.`,
           });
         } catch (e) {
