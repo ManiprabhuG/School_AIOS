@@ -136,6 +136,40 @@ export default function FeesPage() {
     { name: 'dueDate', label: 'Fee Payment Due Date', type: 'date' },
   ];
 
+  const getPaymentDueInfo = (p: FeePayment) => {
+    const std = students.find(
+      (s) =>
+        s.id === p.studentId ||
+        s.name?.trim().toLowerCase() === p.studentName?.trim().toLowerCase() ||
+        (s.name && p.studentName && s.name.toLowerCase().includes(p.studentName.toLowerCase()))
+    );
+
+    const fs = feeStructures.find((f) => f.className === p.className);
+    const category = p.feeCategory || 'Tuition';
+    let defaultCategoryFee = 60000;
+    if (fs) {
+      if (category === 'Tuition') defaultCategoryFee = fs.tuitionFee;
+      else if (category === 'Admission') defaultCategoryFee = fs.admissionFee;
+      else if (category === 'Transport') defaultCategoryFee = fs.transportFee;
+      else if (category === 'Uniform') defaultCategoryFee = fs.uniformFee;
+      else if (category === 'Lab' || category === 'Books') defaultCategoryFee = fs.labFee;
+      else defaultCategoryFee = fs.totalAnnualFee;
+    }
+
+    const totalFee = p.totalAmount || (std?.dueFees ? p.amount + std.dueFees : defaultCategoryFee);
+
+    let dueAmt = 0;
+    if (p.dueAmount !== undefined && p.dueAmount > 0) {
+      dueAmt = p.dueAmount;
+    } else if (totalFee > p.amount) {
+      dueAmt = totalFee - p.amount;
+    } else if (std?.dueFees && std.dueFees > 0) {
+      dueAmt = std.dueFees;
+    }
+
+    return { totalFee, dueAmt, std };
+  };
+
   const paymentColumns: Column<FeePayment>[] = [
     {
       key: 'receiptNo',
@@ -159,24 +193,16 @@ export default function FeesPage() {
       header: 'Amount Paid & Due Status',
       sortable: true,
       render: (p) => {
-        const std = students.find((s) => s.id === p.studentId || s.name === p.studentName);
-        const calcDue =
-          p.dueAmount !== undefined
-            ? p.dueAmount
-            : p.totalAmount && p.totalAmount > p.amount
-            ? p.totalAmount - p.amount
-            : std?.dueFees && std.dueFees > 0
-            ? std.dueFees
-            : 0;
+        const { dueAmt } = getPaymentDueInfo(p);
 
         return (
           <div className="space-y-0.5">
             <span className="font-extrabold text-emerald-600 dark:text-emerald-400 block">
               {formatCurrency(p.amount)}
             </span>
-            {calcDue > 0 ? (
+            {dueAmt > 0 ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                Due Pending: {formatCurrency(calcDue)}
+                Due Pending: {formatCurrency(dueAmt)}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -216,14 +242,7 @@ export default function FeesPage() {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            const std = students.find((s) => s.id === p.studentId || s.name === p.studentName);
-            const dueAmt =
-              p.dueAmount !== undefined
-                ? p.dueAmount
-                : p.totalAmount && p.totalAmount > p.amount
-                ? p.totalAmount - p.amount
-                : std?.dueFees || 0;
-            const fullFee = p.totalAmount || (p.amount + dueAmt);
+            const { totalFee, dueAmt, std } = getPaymentDueInfo(p);
 
             setPrintReceiptData({
               receiptNumber: p.receiptNo || `RCP-${p.id}`,
@@ -239,12 +258,12 @@ export default function FeesPage() {
               items: [
                 { name: `${p.feeCategory} Fee Payment`, amount: p.amount },
               ],
-              subtotal: fullFee,
+              subtotal: totalFee,
               totalAmount: p.amount,
               remainingBalance: dueAmt,
               notes:
                 dueAmt > 0
-                  ? `Partial payment collected. Pending due amount of ${formatCurrency(dueAmt)} remaining.`
+                  ? `Partial payment collected. Pending due amount of ${formatCurrency(dueAmt)} remaining to be cleared.`
                   : 'Full payment received with thanks.',
             });
           }}

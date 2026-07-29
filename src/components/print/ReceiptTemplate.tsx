@@ -176,9 +176,9 @@ export default function ReceiptTemplate({
         </div>
 
         {data.remainingBalance !== undefined && (
-          <div className="flex justify-between font-extrabold text-slate-200 pt-0.5 border-t border-slate-800">
-            <span>Remaining Due Balance:</span>
-            <span>₹{data.remainingBalance.toLocaleString('en-IN')}</span>
+          <div className={`flex justify-between font-black pt-1 border-t border-slate-800 ${data.remainingBalance > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
+            <span>Pending Due Balance:</span>
+            <span>{data.remainingBalance > 0 ? `₹${data.remainingBalance.toLocaleString('en-IN')}` : '₹0 (Nil)'}</span>
           </div>
         )}
       </div>

@@ -11,19 +11,25 @@ export async function GET() {
         orderBy: { createdAt: 'desc' },
       });
 
-      const mapped = payments.map((p) => ({
-        id: p.id,
-        receiptNo: p.receiptNo,
-        studentId: p.studentId,
-        studentName: p.studentName,
-        className: p.className,
-        amount: p.amountPaid || (p as any).amount || 0,
-        feeCategory: p.feeType || (p as any).feeCategory || 'Tuition',
-        collectedBy: p.cashier || (p as any).collectedBy || 'Accounts Desk',
-        paymentDate: p.paymentDate,
-        paymentMode: p.paymentMode,
-        status: p.status === 'Completed' ? 'Success' : p.status,
-      }));
+      const mapped = payments.map((p) => {
+        const total = (p as any).totalAmount;
+        const due = (p as any).dueAmount;
+        return {
+          id: p.id,
+          receiptNo: p.receiptNo,
+          studentId: p.studentId,
+          studentName: p.studentName,
+          className: p.className,
+          amount: p.amountPaid || (p as any).amount || 0,
+          totalAmount: typeof total === 'number' ? total : undefined,
+          dueAmount: typeof due === 'number' ? due : undefined,
+          feeCategory: p.feeType || (p as any).feeCategory || 'Tuition',
+          collectedBy: p.cashier || (p as any).collectedBy || 'Accounts Desk',
+          paymentDate: p.paymentDate,
+          paymentMode: p.paymentMode,
+          status: p.status === 'Completed' ? 'Success' : p.status,
+        };
+      });
 
       return NextResponse.json({ success: true, data: mapped });
     }
