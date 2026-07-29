@@ -314,7 +314,8 @@ export function CrudModal({
 
               const isReadOnly = field.readOnly || field.name === 'id' || field.name.toLowerCase().endsWith('id') || field.name.toLowerCase().endsWith('no') || field.name.toLowerCase().endsWith('number') || field.name.toLowerCase().endsWith('code');
               const colSpanClass = field.colSpan === 2 ? 'sm:col-span-2' : '';
-              const isNameField = !isReadOnly && (field.name === 'name' || field.name === 'studentName' || field.name === 'customerName' || field.name === 'staffName' || field.name === 'postedBy' || field.name === 'driverName');
+              const isSupplierForm = title.toLowerCase().includes('supplier');
+              const isNameField = !isReadOnly && !isSupplierForm && (field.name === 'name' || field.name === 'studentName' || field.name === 'customerName' || field.name === 'staffName' || field.name === 'postedBy' || field.name === 'driverName');
               
               return (
                 <div key={field.name} className={`space-y-1.5 ${colSpanClass}`}>

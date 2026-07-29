@@ -156,9 +156,36 @@ export default function FeesPage() {
     },
     {
       key: 'amount',
-      header: 'Amount Paid',
+      header: 'Amount Paid & Due Status',
       sortable: true,
-      render: (p) => <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(p.amount)}</span>,
+      render: (p) => {
+        const std = students.find((s) => s.id === p.studentId || s.name === p.studentName);
+        const calcDue =
+          p.dueAmount !== undefined
+            ? p.dueAmount
+            : p.totalAmount && p.totalAmount > p.amount
+            ? p.totalAmount - p.amount
+            : std?.dueFees && std.dueFees > 0
+            ? std.dueFees
+            : 0;
+
+        return (
+          <div className="space-y-0.5">
+            <span className="font-extrabold text-emerald-600 dark:text-emerald-400 block">
+              {formatCurrency(p.amount)}
+            </span>
+            {calcDue > 0 ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                Due Pending: {formatCurrency(calcDue)}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                Fully Paid
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     { key: 'feeCategory', header: 'Category', sortable: true },
     { key: 'paymentMode', header: 'Mode', sortable: true },
@@ -205,7 +232,7 @@ export default function FeesPage() {
               ],
               subtotal: p.amount,
               totalAmount: p.amount,
-              remainingBalance: 0,
+              remainingBalance: p.dueAmount || 0,
               notes: 'Payment received with thanks.',
             });
           }}
@@ -218,27 +245,53 @@ export default function FeesPage() {
   ];
 
   const handleSavePayment = async (data: Record<string, any>, saveAndNew?: boolean) => {
+    const selectedStd = students.find((s) => s.name === data.studentName);
+    const collectedAmt = Number(data.amount) || 0;
+
+    // Determine expected total amount for category/class
+    const category = data.feeCategory || 'Tuition';
+    const fs = feeStructures.find((f) => f.className === data.className);
+    let expectedAmt = collectedAmt;
+    if (fs) {
+      if (category === 'Tuition') expectedAmt = fs.tuitionFee;
+      else if (category === 'Admission') expectedAmt = fs.admissionFee;
+      else if (category === 'Transport') expectedAmt = fs.transportFee;
+      else if (category === 'Uniform') expectedAmt = fs.uniformFee;
+      else if (category === 'Lab' || category === 'Books') expectedAmt = fs.labFee;
+      else expectedAmt = fs.totalAnnualFee;
+    } else if (selectedStd?.dueFees) {
+      expectedAmt = Math.max(collectedAmt, selectedStd.dueFees);
+    }
+    const dueAmt = expectedAmt > collectedAmt ? expectedAmt - collectedAmt : 0;
+
+    const payload = {
+      ...data,
+      totalAmount: expectedAmt,
+      dueAmount: dueAmt,
+    };
+
     if (editingPayment) {
-      updateRecord('feePayments', editingPayment.id, data);
+      updateRecord('feePayments', editingPayment.id, payload);
       try {
         await fetch('/api/fees', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingPayment.id, ...data }),
+          body: JSON.stringify({ id: editingPayment.id, ...payload }),
         });
       } catch (err) {
         console.error('Failed to update fee payment in DB:', err);
       }
       setEditingPayment(null);
     } else {
-      const selectedStd = students.find((s) => s.name === data.studentName);
       const newPay: FeePayment = {
         id: `pay-${Date.now()}`,
         receiptNo: data.receiptNo || `RCP-2026-0${feePayments.length + 10}`,
         studentId: selectedStd?.id || 'std-101',
         studentName: data.studentName || 'Student',
         className: (data.className || '10th') as ClassName,
-        amount: Number(data.amount) || 0,
+        amount: collectedAmt,
+        totalAmount: expectedAmt,
+        dueAmount: dueAmt,
         paymentMode: data.paymentMode || 'UPI',
         paymentDate: data.paymentDate || new Date().toISOString().split('T')[0],
         feeCategory: data.feeCategory || 'Tuition',

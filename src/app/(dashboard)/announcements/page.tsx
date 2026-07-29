@@ -35,8 +35,12 @@ export default function AnnouncementsPage() {
     fetch('/api/announcements')
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          useCrudStore.setState({ announcements: res.data });
+        if (res.success && Array.isArray(res.data)) {
+          useCrudStore.setState((state) => {
+            const dbIds = new Set(res.data.map((d: any) => d.id));
+            const localOnly = state.announcements.filter((a) => !dbIds.has(a.id));
+            return { announcements: res.data.length > 0 ? [...res.data, ...localOnly] : state.announcements };
+          });
         }
       })
       .catch((err) => console.error('Failed to load announcements from DB:', err));
@@ -126,11 +130,15 @@ export default function AnnouncementsPage() {
     if (editingAnn) {
       updateRecord('announcements', editingAnn.id, data);
       try {
-        await fetch('/api/announcements', {
+        const res = await fetch('/api/announcements', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: editingAnn.id, ...data }),
         });
+        const resJson = await res.json();
+        if (resJson.success && resJson.data) {
+          updateRecord('announcements', editingAnn.id, resJson.data);
+        }
       } catch (err) {
         console.error('Failed to update announcement in DB:', err);
       }
@@ -138,8 +146,8 @@ export default function AnnouncementsPage() {
     } else {
       const newAnn: Announcement = {
         id: `ann-${Date.now()}`,
-        title: data.title,
-        content: data.content,
+        title: data.title || 'Untitled Announcement',
+        content: data.content || '',
         targetAudience: ['Students', 'Parents', 'Teachers', 'Staff'],
         priority: data.priority || 'Normal',
         author: data.author || 'Principal Office',
@@ -150,20 +158,23 @@ export default function AnnouncementsPage() {
       addRecord('announcements', newAnn);
 
       try {
-        await fetch('/api/announcements', {
+        const res = await fetch('/api/announcements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id: newAnn.id,
             title: newAnn.title,
             content: newAnn.content,
-            category: newAnn.priority,
-            targetAudience: 'All',
-            postedBy: newAnn.author,
+            priority: newAnn.priority,
+            author: newAnn.author,
             date: newAnn.date,
             status: newAnn.status,
           }),
         });
+        const resJson = await res.json();
+        if (resJson.success && resJson.data) {
+          updateRecord('announcements', newAnn.id, resJson.data);
+        }
       } catch (err) {
         console.error('Failed to save announcement to DB:', err);
       }

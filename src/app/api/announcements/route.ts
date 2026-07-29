@@ -12,11 +12,14 @@ export async function GET() {
       });
 
       const mapped = items.map((a) => ({
-        ...a,
-        priority: a.category || (a as any).priority || 'Normal',
-        author: a.postedBy || (a as any).author || 'Admin',
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        priority: a.category || 'Normal',
+        author: a.postedBy || 'Admin',
         targetAudience: ['Students', 'Parents', 'Teachers', 'Staff'],
-        status: a.status === 'ACTIVE' ? 'Published' : a.status,
+        date: a.date,
+        status: a.status === 'ACTIVE' ? 'Published' : a.status === 'INACTIVE' ? 'Draft' : a.status,
       }));
 
       return NextResponse.json({ success: true, data: mapped });
@@ -49,23 +52,36 @@ export async function POST(request: Request) {
 
     if (isDbConnected()) {
       const created = await db.announcement.create({
-        data: dataObj as any,
+        data: dataObj,
       });
 
       const mapped = {
-        ...created,
+        id: created.id,
+        title: created.title,
+        content: created.content,
         priority: created.category,
         author: created.postedBy,
         targetAudience: ['Students', 'Parents', 'Teachers', 'Staff'],
-        status: created.status === 'ACTIVE' ? 'Published' : 'Draft',
+        date: created.date,
+        status: created.status === 'ACTIVE' ? 'Published' : created.status === 'INACTIVE' ? 'Draft' : created.status,
       };
 
       return NextResponse.json({ success: true, data: mapped }, { status: 201 });
     }
 
     const store = useCrudStore.getState();
-    store.addRecord('announcements', dataObj);
-    return NextResponse.json({ success: true, data: dataObj }, { status: 201 });
+    const localMapped = {
+      id: dataObj.id,
+      title: dataObj.title,
+      content: dataObj.content,
+      priority: dataObj.category,
+      author: dataObj.postedBy,
+      targetAudience: ['Students', 'Parents', 'Teachers', 'Staff'],
+      date: dataObj.date,
+      status: body.status || 'Published',
+    };
+    store.addRecord('announcements', localMapped);
+    return NextResponse.json({ success: true, data: localMapped }, { status: 201 });
   } catch (error: any) {
     console.error('Failed to create announcement:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Failed to create announcement' }, { status: 500 });
@@ -75,27 +91,44 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, priority, author, ...updates } = body;
+    const id = body.id;
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
-    const dbUpdates: any = { ...updates };
-    if (priority) dbUpdates.category = priority;
-    if (author) dbUpdates.postedBy = author;
-    if (dbUpdates.status === 'Published') dbUpdates.status = 'ACTIVE';
+    const validDbFields: Record<string, any> = {};
+    if (body.title !== undefined) validDbFields.title = String(body.title);
+    if (body.content !== undefined) validDbFields.content = String(body.content);
+    if (body.priority !== undefined || body.category !== undefined) validDbFields.category = String(body.priority || body.category);
+    if (body.author !== undefined || body.postedBy !== undefined) validDbFields.postedBy = String(body.author || body.postedBy);
+    if (body.date !== undefined) validDbFields.date = String(body.date);
+    if (body.isImportant !== undefined) validDbFields.isImportant = Boolean(body.isImportant);
+    if (body.status !== undefined) {
+      validDbFields.status = body.status === 'Draft' ? 'INACTIVE' : body.status === 'Published' ? 'ACTIVE' : String(body.status);
+    }
 
     if (isDbConnected()) {
-      await db.announcement.update({
+      const updated = await db.announcement.update({
         where: { id },
-        data: dbUpdates,
+        data: validDbFields,
       });
-      return NextResponse.json({ success: true });
+      const mapped = {
+        id: updated.id,
+        title: updated.title,
+        content: updated.content,
+        priority: updated.category,
+        author: updated.postedBy,
+        targetAudience: ['Students', 'Parents', 'Teachers', 'Staff'],
+        date: updated.date,
+        status: updated.status === 'ACTIVE' ? 'Published' : updated.status === 'INACTIVE' ? 'Draft' : updated.status,
+      };
+      return NextResponse.json({ success: true, data: mapped });
     }
 
     const store = useCrudStore.getState();
-    store.updateRecord('announcements', id, updates);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to update announcement' }, { status: 500 });
+    store.updateRecord('announcements', id, body);
+    return NextResponse.json({ success: true, data: body });
+  } catch (error: any) {
+    console.error('Failed to update announcement:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to update announcement' }, { status: 500 });
   }
 }
 

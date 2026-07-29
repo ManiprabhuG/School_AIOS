@@ -12,24 +12,49 @@ export default function StaffAllocationPage() {
   // Per-staff state for class & section
   const [allocations, setAllocations] = useState<Record<string, { className: string; section: string }>>({});
 
-  const classesList = ['LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+  const classesList = ['None', 'LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 
   // Map of available sections per class
   const classSectionsMap: Record<string, string[]> = {
-    LKG: ['A', 'B', 'C'],
-    UKG: ['A', 'B', 'C'],
-    '1st': ['A', 'B', 'C', 'D'],
-    '2nd': ['A', 'B', 'C', 'D'],
-    '3rd': ['A', 'B', 'C', 'D', 'E'],
-    '4th': ['A', 'B', 'C', 'D', 'E'],
-    '5th': ['A', 'B', 'C', 'D', 'E', 'F'],
-    '6th': ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
-    '7th': ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
-    '8th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-    '9th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-    '10th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-    '11th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
-    '12th': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
+    None: ['None'],
+    LKG: ['None', 'A', 'B', 'C'],
+    UKG: ['None', 'A', 'B', 'C'],
+    '1st': ['None', 'A', 'B', 'C', 'D'],
+    '2nd': ['None', 'A', 'B', 'C', 'D'],
+    '3rd': ['None', 'A', 'B', 'C', 'D', 'E'],
+    '4th': ['None', 'A', 'B', 'C', 'D', 'E'],
+    '5th': ['None', 'A', 'B', 'C', 'D', 'E', 'F'],
+    '6th': ['None', 'A', 'B', 'C', 'D', 'E', 'F', 'G'],
+    '7th': ['None', 'A', 'B', 'C', 'D', 'E', 'F', 'G'],
+    '8th': ['None', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+    '9th': ['None', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+    '10th': ['None', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+    '11th': ['None', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
+    '12th': ['None', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
+  };
+
+  const isNonTeachingStaff = (stf: any) => {
+    if (stf.staffType === 'Non-Teaching') return true;
+    if (stf.role) {
+      const r = stf.role.toLowerCase();
+      if (
+        r.includes('driver') ||
+        r.includes('accountant') ||
+        r.includes('hr') ||
+        r.includes('librarian') ||
+        r.includes('receptionist') ||
+        r.includes('inventory') ||
+        r.includes('transport') ||
+        r.includes('cleaner') ||
+        r.includes('security') ||
+        r.includes('peon') ||
+        r.includes('lab assistant') ||
+        r.includes('non-teaching')
+      ) {
+        return true;
+      }
+    }
+    return false;
   };
 
   // Live database sync on mount
@@ -57,16 +82,21 @@ export default function StaffAllocationPage() {
   useEffect(() => {
     const initialAlloc: Record<string, { className: string; section: string }> = {};
     staff.forEach((stf) => {
-      const parts = (stf.allocatedClass || '10th A').split(' ');
-      const cls = parts[0] || '10th';
-      const sec = parts[1] || 'A';
-      initialAlloc[stf.id] = { className: cls, section: sec };
+      const isNonTeaching = isNonTeachingStaff(stf);
+      if (isNonTeaching) {
+        initialAlloc[stf.id] = { className: 'None', section: 'None' };
+      } else {
+        const parts = (stf.allocatedClass || '10th A').split(' ');
+        const cls = parts[0] || '10th';
+        const sec = parts[1] || 'A';
+        initialAlloc[stf.id] = { className: cls, section: sec };
+      }
     });
     setAllocations(initialAlloc);
   }, [staff]);
 
   const handleClassChange = (staffId: string, newClass: string) => {
-    const availableSecs = classSectionsMap[newClass] || ['A', 'B', 'C', 'D'];
+    const availableSecs = classSectionsMap[newClass] || ['None', 'A', 'B', 'C', 'D'];
     const currentSec = allocations[staffId]?.section || 'A';
     const validSec = availableSecs.includes(currentSec) ? currentSec : availableSecs[0];
     setAllocations((prev) => ({
@@ -89,8 +119,13 @@ export default function StaffAllocationPage() {
     subjectsStr: string,
     busRouteHandled: string
   ) => {
-    const subjects = subjectsStr.split(',').map((s) => s.trim()).filter(Boolean);
-    const combinedClass = allocatedSection ? `${allocatedClass} ${allocatedSection}` : allocatedClass;
+    const subjects = subjectsStr ? subjectsStr.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    const combinedClass =
+      allocatedClass === 'None'
+        ? 'None'
+        : allocatedSection && allocatedSection !== 'None'
+        ? `${allocatedClass} ${allocatedSection}`
+        : allocatedClass;
     updateRecord('staff', staffId, {
       allocatedClass: combinedClass,
       subjects,
@@ -175,9 +210,10 @@ export default function StaffAllocationPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredStaff.map((stf) => {
-                const currentCls = allocations[stf.id]?.className || '10th';
-                const currentSec = allocations[stf.id]?.section || 'A';
-                const availableSections = classSectionsMap[currentCls] || ['A', 'B', 'C', 'D'];
+                const isNonTeaching = isNonTeachingStaff(stf);
+                const currentCls = isNonTeaching ? 'None' : allocations[stf.id]?.className || '10th';
+                const currentSec = isNonTeaching ? 'None' : allocations[stf.id]?.section || 'A';
+                const availableSections = classSectionsMap[currentCls] || ['None', 'A', 'B', 'C', 'D'];
 
                 return (
                   <tr key={stf.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
@@ -189,12 +225,15 @@ export default function StaffAllocationPage() {
                     <td className="p-4">
                       <select
                         value={currentCls}
+                        disabled={isNonTeaching}
                         onChange={(e) => handleClassChange(stf.id, e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        className={`bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isNonTeaching ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800/50' : 'cursor-pointer'
+                        }`}
                       >
                         {classesList.map((cls) => (
                           <option key={cls} value={cls}>
-                            Class {cls}
+                            {cls === 'None' ? 'None' : `Class ${cls}`}
                           </option>
                         ))}
                       </select>
@@ -202,23 +241,34 @@ export default function StaffAllocationPage() {
                     <td className="p-4">
                       <select
                         value={currentSec}
+                        disabled={isNonTeaching || currentCls === 'None'}
                         onChange={(e) => handleSectionChange(stf.id, e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        className={`bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isNonTeaching || currentCls === 'None'
+                            ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800/50'
+                            : 'cursor-pointer'
+                        }`}
                       >
                         {availableSections.map((sec) => (
                           <option key={sec} value={sec}>
-                            Section {sec}
+                            {sec === 'None' ? 'None' : `Section ${sec}`}
                           </option>
                         ))}
                       </select>
                     </td>
                     <td className="p-4">
-                      <input
-                        type="text"
-                        defaultValue={stf.subjects ? stf.subjects.join(', ') : 'Physics, Science'}
-                        id={`sbj-${stf.id}`}
-                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 w-40 focus:outline-none font-medium text-xs"
-                      />
+                      {isNonTeaching ? (
+                        <span className="text-slate-400 dark:text-slate-500 font-semibold italic text-xs">
+                          N/A (Non-Teaching)
+                        </span>
+                      ) : (
+                        <input
+                          type="text"
+                          defaultValue={stf.subjects ? stf.subjects.join(', ') : 'Physics, Science'}
+                          id={`sbj-${stf.id}`}
+                          className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 w-40 focus:outline-none font-medium text-xs"
+                        />
+                      )}
                     </td>
                     <td className="p-4">
                       <select
@@ -247,13 +297,13 @@ export default function StaffAllocationPage() {
                     <td className="p-4 text-right">
                       <button
                         onClick={() => {
-                          const sbjEl = document.getElementById(`sbj-${stf.id}`) as HTMLInputElement;
+                          const sbjEl = document.getElementById(`sbj-${stf.id}`) as HTMLInputElement | null;
                           const busEl = document.getElementById(`bus-${stf.id}`) as HTMLSelectElement;
                           handleSaveAllocation(
                             stf.id,
                             currentCls,
                             currentSec,
-                            sbjEl.value,
+                            sbjEl ? sbjEl.value : '',
                             busEl.value
                           );
                         }}
