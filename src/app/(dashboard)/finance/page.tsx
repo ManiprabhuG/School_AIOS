@@ -28,6 +28,8 @@ import {
   Truck,
   Tag,
   CheckCircle2,
+  Edit,
+  Trash2,
 } from 'lucide-react';
 
 export default function FinancePage() {
@@ -45,8 +47,9 @@ export default function FinancePage() {
     updateRecord,
     updateFinancialTransaction,
     deleteFinancialTransaction,
+    updateAccountLedgerEntry,
+    deleteAccountLedgerEntry,
     softDeleteRecord,
-
     restoreRecord,
     permanentDeleteRecord,
     bulkDeleteRecords,
@@ -97,6 +100,26 @@ export default function FinancePage() {
   const [ledgerMethodFilter, setLedgerMethodFilter] = useState<string>('ALL');
   const [ledgerSearchTerm, setLedgerSearchTerm] = useState<string>('');
 
+  // Edit Ledger Entry State
+  const [editingLedgerTx, setEditingLedgerTx] = useState<AccountTransaction | null>(null);
+  const [ledgerForm, setLedgerForm] = useState<{
+    accountId: string;
+    transactionType: 'INCOME' | 'EXPENSE';
+    amount: number;
+    date: string;
+    description: string;
+    paymentMethod: string;
+    referenceNo: string;
+  }>({
+    accountId: '',
+    transactionType: 'INCOME',
+    amount: 0,
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    paymentMethod: 'Cash',
+    referenceNo: '',
+  });
+
   // Transfer Modal State
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [transferFromId, setTransferFromId] = useState<string>('');
@@ -135,7 +158,6 @@ export default function FinancePage() {
     seedDefaultAccounts();
     refreshFinanceData();
   }, []);
-
 
   const totalIncome = financials
     .filter((f) => !f.isDeleted && f.type === 'Income')
@@ -299,13 +321,11 @@ export default function FinancePage() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: editingTx.id, ...updates }),
-
         });
       } catch (err) {
         console.error('Failed to update finance in DB:', err);
       }
       setEditingTx(null);
-
     } else {
       const newTx: FinancialTransaction = {
         id: `tx-${Date.now()}`,
@@ -368,6 +388,69 @@ export default function FinancePage() {
     setIsAddModalOpen(false);
   };
 
+  // Open Edit Ledger Entry Modal
+  const handleOpenEditLedger = (tx: AccountTransaction) => {
+    const isInc = tx.transactionType === 'INCOME' || (tx.credit && tx.credit > 0);
+    const amt = isInc ? tx.credit : tx.debit;
+    setEditingLedgerTx(tx);
+    setLedgerForm({
+      accountId: tx.accountId,
+      transactionType: isInc ? 'INCOME' : 'EXPENSE',
+      amount: amt || 0,
+      date: tx.date,
+      description: tx.description,
+      paymentMethod: tx.paymentMethod,
+      referenceNo: tx.referenceNo || '',
+    });
+  };
+
+  // Save Edit Ledger Entry & Recalculate Balance
+  const handleSaveEditLedger = async () => {
+    if (!editingLedgerTx) return;
+    const isInc = ledgerForm.transactionType === 'INCOME';
+    const updates = {
+      accountId: ledgerForm.accountId,
+      transactionType: ledgerForm.transactionType,
+      credit: isInc ? Number(ledgerForm.amount) : 0,
+      debit: isInc ? 0 : Number(ledgerForm.amount),
+      date: ledgerForm.date,
+      description: ledgerForm.description,
+      paymentMethod: ledgerForm.paymentMethod,
+      referenceNo: ledgerForm.referenceNo,
+    };
+
+    updateAccountLedgerEntry(editingLedgerTx.id, updates as any);
+
+    try {
+      await fetch('/api/account-transactions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingLedgerTx.id, ...updates }),
+      });
+    } catch (err) {
+      console.error('Failed to update ledger entry in DB:', err);
+    }
+
+    setEditingLedgerTx(null);
+    refreshFinanceData();
+  };
+
+  // Delete Ledger Entry & Recalculate Balance
+  const handleDeleteLedgerEntry = async (tx: AccountTransaction) => {
+    if (!confirm(`Are you sure you want to delete ledger entry ${tx.txnNumber}? Account balance will be recalculated automatically.`)) {
+      return;
+    }
+
+    deleteAccountLedgerEntry(tx.id);
+
+    try {
+      await fetch(`/api/account-transactions?id=${tx.id}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to delete ledger entry from DB:', err);
+    }
+
+    refreshFinanceData();
+  };
 
   const handleTransferSubmit = async () => {
     if (!transferFromId || !transferToId || transferFromId === transferToId) {
@@ -393,6 +476,7 @@ export default function FinancePage() {
       setTransferToId('');
       setTransferAmount(0);
       setTransferRemark('');
+      refreshFinanceData();
     }
   };
 
@@ -476,7 +560,7 @@ export default function FinancePage() {
         </div>
 
         <span className="text-xs text-slate-500 font-medium">
-          Party Dynamic Fetch & Central Fund System Active
+          Ledger Entry Edit & Delete Balance Recalculation Active
         </span>
       </div>
 
@@ -764,10 +848,10 @@ export default function FinancePage() {
         </div>
       )}
 
-      {/* CENTRAL ACCOUNT LEDGER VIEWER MODAL */}
+      {/* CENTRAL ACCOUNT LEDGER VIEWER MODAL WITH EDIT & DELETE OPTIONS */}
       {isLedgerOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl p-6 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-6xl p-6 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600">
@@ -777,7 +861,7 @@ export default function FinancePage() {
                   <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
                     Central Financial Account Transaction Ledger
                   </h3>
-                  <p className="text-xs text-slate-500">Real-time debit, credit & running balances per account</p>
+                  <p className="text-xs text-slate-500">Edit, delete & maintain real-time account balances</p>
                 </div>
               </div>
               <button onClick={() => setIsLedgerOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -867,6 +951,7 @@ export default function FinancePage() {
                     <th className="p-3 text-right text-emerald-600">Credit (+)</th>
                     <th className="p-3 text-right font-black">Running Balance</th>
                     <th className="p-3">User</th>
+                    <th className="p-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
@@ -895,12 +980,30 @@ export default function FinancePage() {
                         {formatCurrency(tx.runningBalance)}
                       </td>
                       <td className="p-3 text-[11px] text-slate-400 whitespace-nowrap">{tx.createdBy}</td>
+                      <td className="p-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => handleOpenEditLedger(tx)}
+                            className="px-2 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1"
+                            title="Edit Ledger Entry"
+                          >
+                            <Edit className="w-3 h-3" /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteLedgerEntry(tx)}
+                            className="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950 dark:text-rose-400 font-bold text-[10px] flex items-center gap-1"
+                            title="Delete Ledger Entry"
+                          >
+                            <Trash2 className="w-3 h-3" /> Delete
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
 
                   {filteredLedger.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="p-8 text-center text-slate-400 italic">
+                      <td colSpan={11} className="p-8 text-center text-slate-400 italic">
                         No ledger transactions found matching the selected filters.
                       </td>
                     </tr>
@@ -918,6 +1021,121 @@ export default function FinancePage() {
                 className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" /> Export Ledger CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT LEDGER ENTRY MODAL */}
+      {editingLedgerTx && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit className="w-5 h-5 text-blue-600" /> Edit Central Ledger Entry ({editingLedgerTx.txnNumber})
+              </h3>
+              <button onClick={() => setEditingLedgerTx(null)} className="text-slate-400 hover:text-slate-600">
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Target Account *</label>
+                <select
+                  value={ledgerForm.accountId}
+                  onChange={(e) => setLedgerForm({ ...ledgerForm, accountId: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                >
+                  {financialAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.accountName} (Available: ₹{a.currentBalance.toLocaleString('en-IN')})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Transaction Type *</label>
+                <select
+                  value={ledgerForm.transactionType}
+                  onChange={(e) => setLedgerForm({ ...ledgerForm, transactionType: e.target.value as any })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                >
+                  <option value="INCOME">INCOME / CREDIT (+)</option>
+                  <option value="EXPENSE">EXPENSE / DEBIT (-)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Transaction Amount (₹) *</label>
+                <input
+                  type="number"
+                  value={ledgerForm.amount || ''}
+                  onChange={(e) => setLedgerForm({ ...ledgerForm, amount: Number(e.target.value) })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Date *</label>
+                <input
+                  type="date"
+                  value={ledgerForm.date}
+                  onChange={(e) => setLedgerForm({ ...ledgerForm, date: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Payment Method *</label>
+                <select
+                  value={ledgerForm.paymentMethod}
+                  onChange={(e) => setLedgerForm({ ...ledgerForm, paymentMethod: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Card">Card</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Reference Number</label>
+                <input
+                  type="text"
+                  value={ledgerForm.referenceNo}
+                  onChange={(e) => setLedgerForm({ ...ledgerForm, referenceNo: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Particulars Description</label>
+                <textarea
+                  value={ledgerForm.description}
+                  onChange={(e) => setLedgerForm({ ...ledgerForm, description: e.target.value })}
+                  rows={2}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <button
+                onClick={() => setEditingLedgerTx(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-bold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEditLedger}
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md"
+              >
+                Save & Recalculate Balance
               </button>
             </div>
           </div>
@@ -1049,7 +1267,6 @@ export default function FinancePage() {
               softDeleteRecord('financials', confirmDelete.id);
             }
           }}
-
         />
       )}
 

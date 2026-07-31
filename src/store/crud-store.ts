@@ -104,6 +104,9 @@ export interface CrudState {
   setPmConfig: (config: Partial<PaymentMethodConfig>) => void;
   updateFinancialTransaction: (id: string, updates: Partial<FinancialTransaction>, targetAccountId?: string) => void;
   deleteFinancialTransaction: (id: string) => void;
+  updateAccountLedgerEntry: (id: string, updates: Partial<AccountTransaction>) => void;
+  deleteAccountLedgerEntry: (id: string) => void;
+
 
 
   // Generic Operations
@@ -739,6 +742,87 @@ export const useCrudStore = create<CrudState>()(
           }));
         }
       },
+
+      updateAccountLedgerEntry: (id, updates) => {
+        notifyUserActivity();
+        const state = get();
+        const oldTx = state.accountTransactions.find((t) => t.id === id);
+        if (!oldTx) return;
+
+        const now = new Date().toISOString().split('T')[0];
+        const targetAccountId = updates.accountId || oldTx.accountId;
+        const account = state.financialAccounts.find((a) => a.id === targetAccountId) || state.financialAccounts[0];
+
+        if (account) {
+          let bal = account.currentBalance;
+          if (oldTx.transactionType === 'INCOME' || (oldTx.credit && oldTx.credit > 0)) {
+            bal -= oldTx.credit || 0;
+          } else {
+            bal += oldTx.debit || 0;
+          }
+
+          const isCredit = updates.transactionType === 'INCOME' || (updates.credit && Number(updates.credit) > 0);
+          const creditAmt = isCredit ? Number(updates.credit !== undefined ? updates.credit : oldTx.credit) : 0;
+          const debitAmt = !isCredit ? Number(updates.debit !== undefined ? updates.debit : oldTx.debit) : 0;
+
+          if (isCredit) {
+            bal += creditAmt;
+          } else {
+            bal -= debitAmt;
+          }
+
+          set((prev) => ({
+            financialAccounts: prev.financialAccounts.map((a) => (a.id === account.id ? { ...a, currentBalance: bal, updatedAt: now } : a)),
+            accountTransactions: prev.accountTransactions.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    ...updates,
+                    accountId: account.id,
+                    accountName: account.accountName,
+                    transactionType: isCredit ? ('INCOME' as const) : ('EXPENSE' as const),
+                    credit: creditAmt,
+                    debit: debitAmt,
+                    runningBalance: bal,
+                  }
+                : t
+            ),
+          }));
+        } else {
+          set((prev) => ({
+            accountTransactions: prev.accountTransactions.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+          }));
+        }
+      },
+
+      deleteAccountLedgerEntry: (id) => {
+        notifyUserActivity();
+        const state = get();
+        const oldTx = state.accountTransactions.find((t) => t.id === id);
+        if (!oldTx) return;
+
+        const now = new Date().toISOString().split('T')[0];
+        const account = state.financialAccounts.find((a) => a.id === oldTx.accountId) || state.financialAccounts[0];
+
+        if (account) {
+          let bal = account.currentBalance;
+          if (oldTx.transactionType === 'INCOME' || (oldTx.credit && oldTx.credit > 0)) {
+            bal -= oldTx.credit || 0;
+          } else {
+            bal += oldTx.debit || 0;
+          }
+
+          set((prev) => ({
+            financialAccounts: prev.financialAccounts.map((a) => (a.id === account.id ? { ...a, currentBalance: bal, updatedAt: now } : a)),
+            accountTransactions: prev.accountTransactions.filter((t) => t.id !== id),
+          }));
+        } else {
+          set((prev) => ({
+            accountTransactions: prev.accountTransactions.filter((t) => t.id !== id),
+          }));
+        }
+      },
+
 
       logAudit: (log) => {
         notifyUserActivity();

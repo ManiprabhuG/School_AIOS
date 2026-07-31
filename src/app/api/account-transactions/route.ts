@@ -114,3 +114,113 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: error?.message || 'Failed to record account transaction' }, { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { id } = body;
+    if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
+
+    if (isDbConnected()) {
+      const oldTx = await db.accountTransaction.findUnique({ where: { id } });
+      if (!oldTx) return NextResponse.json({ success: false, error: 'Ledger entry not found' }, { status: 404 });
+
+      const accountId = body.accountId || oldTx.accountId;
+      const account = await db.financialAccount.findUnique({ where: { id: accountId } });
+      if (!account) return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
+
+      // Step 1: Revert old transaction effect
+      let balance = account.currentBalance;
+      if (oldTx.transactionType === 'INCOME' || oldTx.credit > 0) {
+        balance -= oldTx.credit || 0;
+      } else {
+        balance += oldTx.debit || 0;
+      }
+
+      // Step 2: Calculate new effect
+      const newType = body.transactionType || oldTx.transactionType;
+      const isCredit = newType === 'INCOME' || (body.credit && Number(body.credit) > 0);
+      const creditAmt = isCredit ? Number(body.credit !== undefined ? body.credit : (body.amount || oldTx.credit)) : 0;
+      const debitAmt = !isCredit ? Number(body.debit !== undefined ? body.debit : (body.amount || oldTx.debit)) : 0;
+
+      if (isCredit) {
+        balance += creditAmt;
+      } else {
+        balance -= debitAmt;
+      }
+
+      // Update account balance & ledger entry in DB
+      await db.financialAccount.update({
+        where: { id: accountId },
+        data: { currentBalance: balance },
+      });
+
+      const updated = await db.accountTransaction.update({
+        where: { id },
+        data: {
+          accountId: account.id,
+          accountName: account.accountName,
+          date: body.date || oldTx.date,
+          referenceNo: body.referenceNo !== undefined ? body.referenceNo : oldTx.referenceNo,
+          module: body.module || oldTx.module,
+          transactionType: isCredit ? 'INCOME' : 'EXPENSE',
+          description: body.description || oldTx.description,
+          paymentMethod: body.paymentMethod || oldTx.paymentMethod,
+          credit: creditAmt,
+          debit: debitAmt,
+          runningBalance: balance,
+        },
+      });
+
+      return NextResponse.json({ success: true, data: updated });
+    }
+
+    const store = useCrudStore.getState();
+    store.updateAccountLedgerEntry(id, body);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Failed to update account transaction:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to update ledger entry' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
+
+    if (isDbConnected()) {
+      const oldTx = await db.accountTransaction.findUnique({ where: { id } });
+      if (oldTx) {
+        const account = await db.financialAccount.findUnique({ where: { id: oldTx.accountId } });
+        if (account) {
+          let balance = account.currentBalance;
+          if (oldTx.transactionType === 'INCOME' || oldTx.credit > 0) {
+            balance -= oldTx.credit || 0;
+          } else {
+            balance += oldTx.debit || 0;
+          }
+
+          await db.financialAccount.update({
+            where: { id: account.id },
+            data: { currentBalance: balance },
+          });
+        }
+
+        await db.accountTransaction.delete({
+          where: { id },
+        });
+        return NextResponse.json({ success: true });
+      }
+    }
+
+    const store = useCrudStore.getState();
+    store.deleteAccountLedgerEntry(id);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Failed to delete account transaction:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to delete ledger entry' }, { status: 500 });
+  }
+}
+
