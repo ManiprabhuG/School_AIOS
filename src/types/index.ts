@@ -272,7 +272,10 @@ export interface FinancialTransaction extends BaseAuditEntity {
   paymentMode: string;
   referenceNo?: string;
   approvedBy: string;
+  payeeName?: string;
+  entityType?: 'Student' | 'Staff' | 'Supplier' | 'Other' | string;
 }
+
 
 export interface SystemNotification extends BaseAuditEntity {
   id: string;

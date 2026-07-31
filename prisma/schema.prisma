@@ -311,12 +311,15 @@ model FinancialTransaction {
   paymentMethod  String
   referenceNo    String?
   handledBy      String
+  payeeName      String?  // Party / Person Name (Student / Staff / Supplier / Other)
+  entityType     String?  // Student | Staff | Supplier | Other
   status         String   @default("Completed")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@map("financial_transactions")
 }
+
 
 model SystemNotification {
   id        String   @id @default(uuid())

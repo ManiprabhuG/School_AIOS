@@ -41,8 +41,11 @@ export async function POST(request: Request) {
       paymentMethod: String(body.paymentMode || body.paymentMethod || 'Cash'),
       referenceNo: body.referenceNo || null,
       handledBy: String(body.approvedBy || body.handledBy || 'Accountant'),
+      payeeName: body.payeeName ? String(body.payeeName) : null,
+      entityType: body.entityType ? String(body.entityType) : null,
       status: String(body.status || 'Completed'),
     };
+
 
     if (isDbConnected()) {
       const created = await db.financialTransaction.create({

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useCrudStore } from '@/store/crud-store';
 import { FinancialTransaction, AccountTransaction, FinancialAccount } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
-import { CrudModal, FieldConfig } from '@/components/crud/CrudModal';
 import { ImportModal } from '@/components/crud/ImportModal';
 import { AuditLogViewer } from '@/components/crud/AuditLogViewer';
 import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
@@ -23,6 +22,12 @@ import {
   Filter,
   RefreshCw,
   Search,
+  User,
+  Users,
+  GraduationCap,
+  Truck,
+  Tag,
+  CheckCircle2,
 } from 'lucide-react';
 
 export default function FinancePage() {
@@ -30,6 +35,9 @@ export default function FinancePage() {
     financials,
     financialAccounts,
     accountTransactions,
+    students,
+    staff,
+    suppliers,
     seedDefaultAccounts,
     transferFunds,
     auditLogs,
@@ -49,6 +57,35 @@ export default function FinancePage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
+
+  // Dynamic Voucher Form State
+  const [voucherForm, setVoucherForm] = useState<{
+    transactionNo: string;
+    accountId: string;
+    type: 'Income' | 'Expense';
+    category: string;
+    entityType: 'Student' | 'Staff' | 'Supplier' | 'Other';
+    payeeName: string;
+    amount: number;
+    date: string;
+    description: string;
+    paymentMode: string;
+    referenceNo: string;
+    approvedBy: string;
+  }>({
+    transactionNo: '',
+    accountId: '',
+    type: 'Income',
+    category: 'School Fees',
+    entityType: 'Student',
+    payeeName: '',
+    amount: 0,
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    paymentMode: 'Cash',
+    referenceNo: '',
+    approvedBy: 'Dr. Rajesh Sharma',
+  });
 
   // Ledger Viewer Modal State
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
@@ -107,67 +144,85 @@ export default function FinancePage() {
 
   const totalCentralFunds = financialAccounts.reduce((sum, a) => sum + a.currentBalance, 0);
 
-  const accountOptions = financialAccounts.map((a) => ({
-    label: `${a.accountName} (${a.accountType === 'Cash Fund Account' || a.accountType === 'CASH' ? 'Cash' : a.bankName || 'Bank'}) - ₹${a.currentBalance.toLocaleString('en-IN')}`,
-    value: a.id,
-  }));
+  const defaultAccId = financialAccounts[0]?.id || 'acc-main-001';
 
-  const defaultAccId = financialAccounts[0]?.id || '';
+  // Open Create Voucher Modal with reset form
+  const handleOpenAddVoucher = () => {
+    setEditingTx(null);
+    setVoucherForm({
+      transactionNo: `TXN-${Math.floor(8800 + Math.random() * 1000)}`,
+      accountId: defaultAccId,
+      type: 'Income',
+      category: 'School Fees',
+      entityType: 'Student',
+      payeeName: students[0]?.name || '',
+      amount: 0,
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      paymentMode: 'Cash',
+      referenceNo: '',
+      approvedBy: 'Dr. Rajesh Sharma',
+    });
+    setIsAddModalOpen(true);
+  };
 
-  const financeFields: FieldConfig[] = [
-    { name: 'transactionNo', label: 'Transaction Voucher No (e.g. TXN-8805)', type: 'text' },
-    {
-      name: 'accountId',
-      label: 'Affected School Fund Account *',
-      type: 'select',
-      options: accountOptions.length > 0 ? accountOptions : [{ label: 'Main School Account', value: 'acc-main-001' }],
-    },
-    {
-      name: 'type',
-      label: 'Transaction Type',
-      type: 'select',
-      options: [
-        { label: 'Income', value: 'Income' },
-        { label: 'Expense', value: 'Expense' },
-      ],
-    },
-    {
-      name: 'category',
-      label: 'Account Head Category',
-      type: 'select',
-      options: [
-        { label: 'School Fees', value: 'School Fees' },
-        { label: 'Salary Payment', value: 'Salary' },
-        { label: 'Uniform Sales', value: 'Uniform Sales' },
-        { label: 'Books & Supplies Sales', value: 'Book Sales' },
-        { label: 'Donations & Endowments', value: 'Donation' },
-        { label: 'Other Income', value: 'Other Income' },
-        { label: 'Electricity & Utilities', value: 'Electricity' },
-        { label: 'Building Maintenance', value: 'Maintenance' },
-        { label: 'Transport & Fuel', value: 'Fuel' },
-        { label: 'Stationery & Supplies', value: 'Supplies' },
-        { label: 'Refund', value: 'Refund' },
-      ],
-    },
-    { name: 'amount', label: 'Amount (₹)', type: 'number' },
-    { name: 'date', label: 'Transaction Date', type: 'date' },
-    { name: 'description', label: 'Particulars Description', type: 'textarea', colSpan: 2 },
-    {
-      name: 'paymentMode',
-      label: 'Payment Method / Instrument',
-      type: 'select',
-      options: [
-        { label: 'Cash', value: 'Cash' },
-        { label: 'UPI', value: 'UPI' },
-        { label: 'Bank Transfer', value: 'Bank Transfer' },
-        { label: 'Cheque', value: 'Cheque' },
-        { label: 'Card', value: 'Card' },
-        { label: 'Online Payment', value: 'Online Payment' },
-      ],
-    },
-    { name: 'referenceNo', label: 'Bank Ref / UTR / Cheque Number', type: 'text' },
-    { name: 'approvedBy', label: 'Approving Officer', type: 'text' },
-  ];
+  // Open Edit Voucher Modal
+  const handleOpenEditVoucher = (tx: FinancialTransaction) => {
+    setEditingTx(tx);
+    setVoucherForm({
+      transactionNo: tx.transactionNo,
+      accountId: defaultAccId,
+      type: tx.type,
+      category: tx.category,
+      entityType: (tx.entityType as any) || 'Other',
+      payeeName: tx.payeeName || '',
+      amount: tx.amount,
+      date: tx.date,
+      description: tx.description,
+      paymentMode: tx.paymentMode,
+      referenceNo: tx.referenceNo || '',
+      approvedBy: tx.approvedBy || 'Dr. Rajesh Sharma',
+    });
+    setIsAddModalOpen(true);
+  };
+
+  // Handle Category Change (Auto-detect Entity Type & set Payee Name)
+  const handleCategoryChange = (cat: string) => {
+    let newEntityType: 'Student' | 'Staff' | 'Supplier' | 'Other' = 'Other';
+    let newPayee = '';
+
+    if (cat === 'School Fees') {
+      newEntityType = 'Student';
+      newPayee = students[0]?.name || '';
+    } else if (cat === 'Salary Payment' || cat === 'Salary') {
+      newEntityType = 'Staff';
+      newPayee = staff[0]?.name || '';
+    } else if (cat === 'Uniform Sales' || cat === 'Book Sales' || cat === 'Stationery & Supplies') {
+      newEntityType = 'Supplier';
+      newPayee = suppliers[0]?.name || '';
+    }
+
+    setVoucherForm((prev) => ({
+      ...prev,
+      category: cat,
+      entityType: newEntityType,
+      payeeName: newPayee,
+    }));
+  };
+
+  // Handle Entity Type Change
+  const handleEntityTypeChange = (type: 'Student' | 'Staff' | 'Supplier' | 'Other') => {
+    let defaultPayee = '';
+    if (type === 'Student') defaultPayee = students[0]?.name || '';
+    else if (type === 'Staff') defaultPayee = staff[0]?.name || '';
+    else if (type === 'Supplier') defaultPayee = suppliers[0]?.name || '';
+
+    setVoucherForm((prev) => ({
+      ...prev,
+      entityType: type,
+      payeeName: defaultPayee,
+    }));
+  };
 
   const columns: Column<FinancialTransaction>[] = [
     {
@@ -195,6 +250,21 @@ export default function FinancePage() {
     },
     { key: 'category', header: 'Category Head', sortable: true },
     {
+      key: 'payeeName',
+      header: 'Party / Person Name',
+      sortable: true,
+      render: (tx) => (
+        <div>
+          <span className="font-bold text-slate-900 dark:text-white block">{tx.payeeName || 'General / N/A'}</span>
+          {tx.entityType && (
+            <span className="inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+              {tx.entityType}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'amount',
       header: 'Amount',
       sortable: true,
@@ -210,16 +280,22 @@ export default function FinancePage() {
     { key: 'approvedBy', header: 'Approved By' },
   ];
 
-  const handleSaveFinance = async (data: Record<string, any>, saveAndNew?: boolean) => {
-    const targetAccountId = data.accountId || defaultAccId;
+  const handleSaveVoucher = async () => {
+    if (!voucherForm.amount || voucherForm.amount <= 0) {
+      alert('Please enter a valid voucher amount');
+      return;
+    }
+
+    const targetAccountId = voucherForm.accountId || defaultAccId;
 
     if (editingTx) {
-      updateRecord('financials', editingTx.id, data);
+      const updates = { ...voucherForm };
+      updateRecord('financials', editingTx.id, updates);
       try {
         await fetch('/api/finance', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingTx.id, accountId: targetAccountId, ...data }),
+          body: JSON.stringify({ id: editingTx.id, ...updates }),
         });
       } catch (err) {
         console.error('Failed to update finance in DB:', err);
@@ -228,19 +304,21 @@ export default function FinancePage() {
     } else {
       const newTx: FinancialTransaction = {
         id: `tx-${Date.now()}`,
-        transactionNo: data.transactionNo || `TXN-${Math.floor(8800 + Math.random() * 1000)}`,
-        type: data.type || 'Income',
-        category: data.category || 'School Fees',
-        amount: Number(data.amount) || 0,
-        date: data.date || new Date().toISOString().split('T')[0],
-        description: data.description || 'Financial Voucher',
-        paymentMode: data.paymentMode || 'Cash',
-        referenceNo: data.referenceNo || '',
-        approvedBy: data.approvedBy || 'Dr. Rajesh Sharma',
+        transactionNo: voucherForm.transactionNo || `TXN-${Math.floor(8800 + Math.random() * 1000)}`,
+        type: voucherForm.type,
+        category: voucherForm.category,
+        payeeName: voucherForm.payeeName || 'General',
+        entityType: voucherForm.entityType,
+        amount: Number(voucherForm.amount) || 0,
+        date: voucherForm.date,
+        description: voucherForm.description || 'Financial Voucher',
+        paymentMode: voucherForm.paymentMode,
+        referenceNo: voucherForm.referenceNo || '',
+        approvedBy: voucherForm.approvedBy || 'Dr. Rajesh Sharma',
       };
       addRecord('financials', newTx);
 
-      // Record Account Ledger transaction
+      // Record Central Account Ledger entry
       recordAccountTransaction({
         txnNumber: `ATX-${newTx.transactionNo}`,
         accountId: targetAccountId,
@@ -249,7 +327,7 @@ export default function FinancePage() {
         referenceNo: newTx.referenceNo || newTx.transactionNo,
         module: 'FINANCE',
         transactionType: newTx.type === 'Income' ? 'INCOME' : 'EXPENSE',
-        description: `Voucher (${newTx.category}): ${newTx.description}`,
+        description: `Voucher (${newTx.category} - ${newTx.payeeName}): ${newTx.description}`,
         paymentMethod: newTx.paymentMode,
         credit: newTx.type === 'Income' ? newTx.amount : 0,
         debit: newTx.type === 'Income' ? 0 : newTx.amount,
@@ -266,6 +344,8 @@ export default function FinancePage() {
             txnNumber: newTx.transactionNo,
             type: newTx.type,
             category: newTx.category,
+            payeeName: newTx.payeeName,
+            entityType: newTx.entityType,
             amount: newTx.amount,
             date: newTx.date,
             description: newTx.description || 'Financial Transaction',
@@ -277,9 +357,9 @@ export default function FinancePage() {
       } catch (err) {
         console.error('Failed to save finance transaction to DB:', err);
       }
-
-      if (!saveAndNew) setIsAddModalOpen(false);
     }
+
+    setIsAddModalOpen(false);
   };
 
   const handleTransferSubmit = async () => {
@@ -389,14 +469,14 @@ export default function FinancePage() {
         </div>
 
         <span className="text-xs text-slate-500 font-medium">
-          Central Fund Account Balance System Active
+          Party Dynamic Fetch & Central Fund System Active
         </span>
       </div>
 
       {/* Main Data Table */}
       <DataTable
         title="Finance, Cash Book & Voucher Management"
-        subtitle="Income Collections, Expense Disbursement, Cash Book Ledger & Financial Audit"
+        subtitle="Income Collections, Expense Disbursement, Party Records & Cash Book Ledger"
         icon={<Landmark className="w-6 h-6" />}
         columns={columns}
         data={financials}
@@ -422,8 +502,8 @@ export default function FinancePage() {
             ],
           },
         ]}
-        onAddClick={() => setIsAddModalOpen(true)}
-        onEditClick={(tx) => setEditingTx(tx)}
+        onAddClick={handleOpenAddVoucher}
+        onEditClick={handleOpenEditVoucher}
         onViewClick={(tx) => setViewingTx(tx)}
         onSoftDeleteClick={(tx) => setConfirmDelete({ id: tx.id, name: tx.transactionNo, permanent: false })}
         onRestoreClick={(tx) => restoreRecord('financials', tx.id)}
@@ -433,18 +513,249 @@ export default function FinancePage() {
         onAuditLogsClick={() => setIsAuditOpen(true)}
       />
 
-      {/* Add / Edit Voucher Modal */}
-      <CrudModal
-        isOpen={isAddModalOpen || Boolean(editingTx)}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setEditingTx(null);
-        }}
-        title="Financial Voucher"
-        fields={financeFields}
-        initialData={editingTx ? { ...editingTx } : { accountId: defaultAccId }}
-        onSave={handleSaveFinance}
-      />
+      {/* CREATE / EDIT FINANCIAL VOUCHER MODAL WITH DYNAMIC PARTY FETCH */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-blue-600" />
+                {editingTx ? 'Edit Financial Voucher' : 'Create New Financial Voucher'}
+              </h3>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Voucher Number *</label>
+                <input
+                  type="text"
+                  value={voucherForm.transactionNo}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, transactionNo: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Affected School Account *</label>
+                <select
+                  value={voucherForm.accountId}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, accountId: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                >
+                  {financialAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.accountName} ({a.accountType === 'Cash Fund Account' || a.accountType === 'CASH' ? 'Cash' : 'Bank'}) - ₹
+                      {a.currentBalance.toLocaleString('en-IN')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Transaction Type *</label>
+                <select
+                  value={voucherForm.type}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, type: e.target.value as any })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                >
+                  <option value="Income">Income (+)</option>
+                  <option value="Expense">Expense (-)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Account Head Category *</label>
+                <select
+                  value={voucherForm.category}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                >
+                  <option value="School Fees">School Fees (Student)</option>
+                  <option value="Salary Payment">Salary Payment (Staff)</option>
+                  <option value="Uniform Sales">Uniform Sales (Supplier/Vendor)</option>
+                  <option value="Book Sales">Book Sales (Supplier/Vendor)</option>
+                  <option value="Donations & Endowments">Donations & Endowments</option>
+                  <option value="Other Income">Other Income</option>
+                  <option value="Electricity & Utilities">Electricity & Utilities</option>
+                  <option value="Building Maintenance">Building Maintenance</option>
+                  <option value="Transport & Fuel">Transport & Fuel</option>
+                  <option value="Stationery & Supplies">Stationery & Supplies</option>
+                  <option value="Refund">Refund Payout</option>
+                </select>
+              </div>
+
+              {/* Dynamic Party Type Selector */}
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Party / Entity Type *</label>
+                <select
+                  value={voucherForm.entityType}
+                  onChange={(e) => handleEntityTypeChange(e.target.value as any)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                >
+                  <option value="Student">Student (Fetches Student Database)</option>
+                  <option value="Staff">Staff / Employee (Fetches Staff Database)</option>
+                  <option value="Supplier">Supplier / Vendor (Fetches Supplier Database)</option>
+                  <option value="Other">Other / General (Custom Type In)</option>
+                </select>
+              </div>
+
+              {/* Dynamic Party Name Input / Dropdown Fetch */}
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1 flex items-center justify-between">
+                  <span>Party / Person Name *</span>
+                  <span className="text-[10px] text-blue-500 font-semibold">
+                    {voucherForm.entityType === 'Student' && 'Fetching Students'}
+                    {voucherForm.entityType === 'Staff' && 'Fetching Staff'}
+                    {voucherForm.entityType === 'Supplier' && 'Fetching Suppliers'}
+                    {voucherForm.entityType === 'Other' && 'Manual Typing'}
+                  </span>
+                </label>
+
+                {voucherForm.entityType === 'Student' && (
+                  <select
+                    value={voucherForm.payeeName}
+                    onChange={(e) => setVoucherForm({ ...voucherForm, payeeName: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                  >
+                    {students.length > 0 ? (
+                      students.map((s) => (
+                        <option key={s.id} value={s.name}>
+                          {s.name} ({s.className}-{s.section}) - Adm: {s.admissionNo}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="Aarav Verma">Aarav Verma (10th-A)</option>
+                    )}
+                  </select>
+                )}
+
+                {voucherForm.entityType === 'Staff' && (
+                  <select
+                    value={voucherForm.payeeName}
+                    onChange={(e) => setVoucherForm({ ...voucherForm, payeeName: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                  >
+                    {staff.length > 0 ? (
+                      staff.map((s) => (
+                        <option key={s.id} value={s.name}>
+                          {s.name} ({s.role}) - Dept: {s.department}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="Kavitha Sundaram">Kavitha Sundaram (Teacher)</option>
+                    )}
+                  </select>
+                )}
+
+                {voucherForm.entityType === 'Supplier' && (
+                  <select
+                    value={voucherForm.payeeName}
+                    onChange={(e) => setVoucherForm({ ...voucherForm, payeeName: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                  >
+                    {suppliers.length > 0 ? (
+                      suppliers.map((s) => (
+                        <option key={s.id} value={s.name}>
+                          {s.name} ({s.companyName || s.category})
+                        </option>
+                      ))
+                    ) : (
+                      <option value="Raymond School Uniforms">Raymond School Uniforms</option>
+                    )}
+                  </select>
+                )}
+
+                {voucherForm.entityType === 'Other' && (
+                  <input
+                    type="text"
+                    value={voucherForm.payeeName}
+                    onChange={(e) => setVoucherForm({ ...voucherForm, payeeName: e.target.value })}
+                    placeholder="Type party/person name (e.g. TNEB, Fuel Station, Maintenance Vendor)..."
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Voucher Amount (₹) *</label>
+                <input
+                  type="number"
+                  value={voucherForm.amount || ''}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, amount: Number(e.target.value) })}
+                  placeholder="0.00"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Transaction Date *</label>
+                <input
+                  type="date"
+                  value={voucherForm.date}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, date: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Payment Method *</label>
+                <select
+                  value={voucherForm.paymentMode}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, paymentMode: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Card">Card</option>
+                  <option value="Online Payment">Online Payment</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Bank Ref / UTR / Cheque No</label>
+                <input
+                  type="text"
+                  value={voucherForm.referenceNo}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, referenceNo: e.target.value })}
+                  placeholder="e.g. UTR-99882201"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Particulars Description</label>
+                <textarea
+                  value={voucherForm.description}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, description: e.target.value })}
+                  placeholder="Transaction particulars details..."
+                  rows={2}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveVoucher}
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md"
+              >
+                {editingTx ? 'Save Voucher Changes' : 'Create Voucher'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CENTRAL ACCOUNT LEDGER VIEWER MODAL */}
       {isLedgerOpen && (
@@ -763,6 +1074,7 @@ export default function FinancePage() {
               </div>
 
               <div className="space-y-1">
+                <p>Party / Payee Name: <strong>{viewingTx.payeeName || 'N/A'}</strong> ({viewingTx.entityType || 'General'})</p>
                 <p>Particulars: <strong>{viewingTx.description}</strong></p>
                 <p>Payment Mode: {viewingTx.paymentMode}</p>
                 <p>Ref UTR: {viewingTx.referenceNo || 'N/A'}</p>
