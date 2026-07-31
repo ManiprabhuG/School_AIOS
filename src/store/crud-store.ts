@@ -205,39 +205,180 @@ export const useCrudStore = create<CrudState>()(
 
       seedDefaultAccounts: () => {
         const state = get();
-        if (state.financialAccounts.length > 0) return;
         const now = new Date().toISOString().split('T')[0];
-        const mainAcc: FinancialAccount = {
-          id: 'acc-main-001',
-          accountName: 'Main School Account',
-          accountCode: 'ACC-MAIN-001',
-          accountType: 'School Bank Account',
-          bankName: 'State Bank of India',
-          branch: 'Main Branch, Knowledge City',
-          accountNumber: '30129844001',
-          ifscCode: 'SBIN0004012',
-          openingBalance: 500000,
-          currentBalance: 500000,
-          openingDate: '2026-04-01',
-          status: 'ACTIVE',
-          description: 'Central operational bank account for fee receipts and direct disbursements.',
-          createdAt: now,
-          updatedAt: now,
-        };
-        const cashAcc: FinancialAccount = {
-          id: 'acc-cash-001',
-          accountName: 'Cash In Hand',
-          accountCode: 'ACC-CASH-001',
-          accountType: 'Cash Fund Account',
-          openingBalance: 50000,
-          currentBalance: 50000,
-          openingDate: '2026-04-01',
-          status: 'ACTIVE',
-          description: 'Main cash fund account for physical cash collected and office cash expenses.',
-          createdAt: now,
-          updatedAt: now,
-        };
-        set({ financialAccounts: [mainAcc, cashAcc] });
+
+        if (state.financialAccounts.length === 0) {
+          const mainAcc: FinancialAccount = {
+            id: 'acc-main-001',
+            accountName: 'Main School Account',
+            accountCode: 'ACC-MAIN-001',
+            accountType: 'School Bank Account',
+            bankName: 'State Bank of India',
+            branch: 'Main Branch, Knowledge City',
+            accountNumber: '30129844001',
+            ifscCode: 'SBIN0004012',
+            openingBalance: 500000,
+            currentBalance: 497500,
+            openingDate: '2026-04-01',
+            status: 'ACTIVE',
+            description: 'Central operational bank account for fee receipts and direct disbursements.',
+            createdAt: now,
+            updatedAt: now,
+          };
+          const cashAcc: FinancialAccount = {
+            id: 'acc-cash-001',
+            accountName: 'Cash In Hand',
+            accountCode: 'ACC-CASH-001',
+            accountType: 'Cash Fund Account',
+            openingBalance: 50000,
+            currentBalance: 58500,
+            openingDate: '2026-04-01',
+            status: 'ACTIVE',
+            description: 'Main cash fund account for physical cash collected and office cash expenses.',
+            createdAt: now,
+            updatedAt: now,
+          };
+          set({ financialAccounts: [mainAcc, cashAcc] });
+        }
+
+        if (state.financials.length === 0) {
+          set({
+            financials: [
+              {
+                id: 'tx-8801',
+                transactionNo: 'TXN-8801',
+                type: 'Income',
+                category: 'School Fees',
+                payeeName: 'Aarav Verma (10th-A)',
+                entityType: 'Student',
+                amount: 45000,
+                date: '2026-07-28',
+                description: 'Term 1 Tuition & Transport Fee Collection',
+                paymentMode: 'UPI',
+                referenceNo: 'UTR-9908123',
+                approvedBy: 'Dr. Rajesh Sharma',
+              },
+              {
+                id: 'tx-8802',
+                transactionNo: 'TXN-8802',
+                type: 'Expense',
+                category: 'Salary Payment',
+                payeeName: 'Kavitha Sundaram (Teacher)',
+                entityType: 'Staff',
+                amount: 35000,
+                date: '2026-07-29',
+                description: 'Monthly Faculty Salary Disbursement',
+                paymentMode: 'Bank Transfer',
+                referenceNo: 'NFT-778811',
+                approvedBy: 'Dr. Rajesh Sharma',
+              },
+              {
+                id: 'tx-8803',
+                transactionNo: 'TXN-8803',
+                type: 'Expense',
+                category: 'Electricity & Utilities',
+                payeeName: 'TNEB Electricity Board',
+                entityType: 'Other',
+                amount: 12500,
+                date: '2026-07-30',
+                description: 'Campus Monthly Electricity Charges',
+                paymentMode: 'Bank Transfer',
+                referenceNo: 'BIL-445500',
+                approvedBy: 'Dr. Rajesh Sharma',
+              },
+              {
+                id: 'tx-8804',
+                transactionNo: 'TXN-8804',
+                type: 'Income',
+                category: 'Uniform Sales',
+                payeeName: 'Raymond School Uniforms',
+                entityType: 'Supplier',
+                amount: 8500,
+                date: '2026-07-30',
+                description: 'Uniform Counter Daily Collection',
+                paymentMode: 'Cash',
+                referenceNo: 'CSH-1022',
+                approvedBy: 'Accounts Counter',
+              },
+            ],
+          });
+        }
+
+        if (state.accountTransactions.length === 0) {
+          set({
+            accountTransactions: [
+              {
+                id: 'atx-8801',
+                txnNumber: 'ATX-TXN-8801',
+                accountId: 'acc-main-001',
+                accountName: 'Main School Account',
+                date: '2026-07-28',
+                referenceNo: 'UTR-9908123',
+                module: 'FINANCE',
+                transactionType: 'INCOME',
+                description: 'Voucher (School Fees - Aarav Verma (10th-A)): Term 1 Tuition & Transport Fee Collection',
+                paymentMethod: 'UPI',
+                debit: 0,
+                credit: 45000,
+                runningBalance: 545000,
+                createdBy: 'Dr. Rajesh Sharma',
+                createdAt: '2026-07-28T10:00:00Z',
+              },
+              {
+                id: 'atx-8802',
+                txnNumber: 'ATX-TXN-8802',
+                accountId: 'acc-main-001',
+                accountName: 'Main School Account',
+                date: '2026-07-29',
+                referenceNo: 'NFT-778811',
+                module: 'FINANCE',
+                transactionType: 'EXPENSE',
+                description: 'Voucher (Salary Payment - Kavitha Sundaram (Teacher)): Monthly Faculty Salary Disbursement',
+                paymentMethod: 'Bank Transfer',
+                debit: 35000,
+                credit: 0,
+                runningBalance: 510000,
+                createdBy: 'Dr. Rajesh Sharma',
+                createdAt: '2026-07-29T11:30:00Z',
+              },
+              {
+                id: 'atx-8803',
+                txnNumber: 'ATX-TXN-8803',
+                accountId: 'acc-main-001',
+                accountName: 'Main School Account',
+                date: '2026-07-30',
+                referenceNo: 'BIL-445500',
+                module: 'FINANCE',
+                transactionType: 'EXPENSE',
+                description: 'Voucher (Electricity & Utilities - TNEB Electricity Board): Campus Monthly Electricity Charges',
+                paymentMethod: 'Bank Transfer',
+                debit: 12500,
+                credit: 0,
+                runningBalance: 497500,
+                createdBy: 'Dr. Rajesh Sharma',
+                createdAt: '2026-07-30T14:15:00Z',
+              },
+              {
+                id: 'atx-8804',
+                txnNumber: 'ATX-TXN-8804',
+                accountId: 'acc-cash-001',
+                accountName: 'Cash In Hand',
+                date: '2026-07-30',
+                referenceNo: 'CSH-1022',
+                module: 'FINANCE',
+                transactionType: 'INCOME',
+                description: 'Voucher (Uniform Sales - Raymond School Uniforms): Uniform Counter Daily Collection',
+                paymentMethod: 'Cash',
+                debit: 0,
+                credit: 8500,
+                runningBalance: 58500,
+                createdBy: 'Accounts Counter',
+                createdAt: '2026-07-30T16:00:00Z',
+              },
+            ],
+          });
+        }
+
         get().logAudit({
           userId: currentUser.id,
           userName: currentUser.name,
@@ -245,9 +386,10 @@ export const useCrudStore = create<CrudState>()(
           action: 'CREATE',
           module: 'financialAccounts',
           recordId: 'seed-default-accounts',
-          details: 'Seeded default financial accounts: Main School Account & Cash In Hand',
+          details: 'Seeded default financial accounts, vouchers & central ledger',
         });
       },
+
 
       addFinancialAccount: (accountData) => {
         notifyUserActivity();

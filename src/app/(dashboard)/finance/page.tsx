@@ -104,7 +104,7 @@ export default function FinancePage() {
   const [transferAmount, setTransferAmount] = useState<number>(0);
   const [transferRemark, setTransferRemark] = useState<string>('');
 
-  useEffect(() => {
+  const refreshFinanceData = () => {
     fetch('/api/finance')
       .then((res) => res.json())
       .then((res) => {
@@ -117,25 +117,25 @@ export default function FinancePage() {
     fetch('/api/financial-accounts')
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          if (res.data.length === 0) {
-            seedDefaultAccounts();
-          } else {
-            useCrudStore.setState({ financialAccounts: res.data });
-          }
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          useCrudStore.setState({ financialAccounts: res.data });
         }
-      })
-      .catch(() => seedDefaultAccounts());
+      });
 
     fetch('/api/account-transactions')
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
           useCrudStore.setState({ accountTransactions: res.data });
         }
-      })
-      .catch((err) => console.error('Failed to load account transactions:', err));
+      });
+  };
+
+  useEffect(() => {
+    seedDefaultAccounts();
+    refreshFinanceData();
   }, []);
+
 
   const totalIncome = financials
     .filter((f) => !f.isDeleted && f.type === 'Income')
@@ -364,8 +364,10 @@ export default function FinancePage() {
       }
     }
 
+    refreshFinanceData();
     setIsAddModalOpen(false);
   };
+
 
   const handleTransferSubmit = async () => {
     if (!transferFromId || !transferToId || transferFromId === transferToId) {
