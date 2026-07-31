@@ -17,65 +17,71 @@ export async function POST(request: Request) {
     const report: CleanupReportItem[] = [];
 
     if (isDbConnected()) {
+      const dbAny = db as any;
+
       // 1. Protected Tables (Measure only, DO NOT DELETE)
-      const studentCount = await db.student.count();
+      const studentCount = await dbAny.student.count();
       report.push({ table: 'Students (students)', rowsBefore: studentCount, rowsDeleted: 0, rowsRemaining: studentCount, status: 'Protected' });
 
-      const staffCount = await db.staff.count();
+      const staffCount = await dbAny.staff.count();
       report.push({ table: 'Staff (staff)', rowsBefore: staffCount, rowsDeleted: 0, rowsRemaining: staffCount, status: 'Protected' });
 
-      const classCount = await db.classEntity.count();
+      const classCount = await dbAny.classEntity.count();
       report.push({ table: 'Staff Allocation / Classes (classes)', rowsBefore: classCount, rowsDeleted: 0, rowsRemaining: classCount, status: 'Protected' });
 
-      const attendanceCount = await db.attendanceRecord.count();
+      const attendanceCount = await dbAny.attendanceRecord.count();
       report.push({ table: 'Attendance (attendance_records)', rowsBefore: attendanceCount, rowsDeleted: 0, rowsRemaining: attendanceCount, status: 'Protected' });
 
-      const feeStructCount = await db.feeStructure.count();
+      const feeStructCount = await dbAny.feeStructure.count();
       report.push({ table: 'Fee Structure (fee_structures)', rowsBefore: feeStructCount, rowsDeleted: 0, rowsRemaining: feeStructCount, status: 'Protected' });
 
-      const supplierCount = await db.supplier.count();
+      const supplierCount = await dbAny.supplier.count();
       report.push({ table: 'Suppliers (suppliers)', rowsBefore: supplierCount, rowsDeleted: 0, rowsRemaining: supplierCount, status: 'Protected' });
 
-      const userCount = await db.user.count();
+      const userCount = await dbAny.user.count();
       report.push({ table: 'Admin Users & Roles (users)', rowsBefore: userCount, rowsDeleted: 0, rowsRemaining: userCount, status: 'Protected' });
 
       // 2. Target Demo Tables (Measure before, Delete, Measure after)
       const tablesToClean = [
-        { name: 'Financial Vouchers (financial_transactions)', model: db.financialTransaction },
-        { name: 'Central Account Ledger (account_transactions)', model: db.accountTransaction },
-        { name: 'Account Adjustments (account_adjustments)', model: db.accountAdjustment },
-        { name: 'Fee Payments (fee_payments)', model: db.feePayment },
-        { name: 'Purchase Orders (purchase_orders)', model: db.purchaseOrder },
-        { name: 'Sales Items (sales_items)', model: db.salesItem },
-        { name: 'Inventory Items (inventory_items)', model: db.inventoryItem },
-        { name: 'Announcements (announcements)', model: db.announcement },
-        { name: 'Notifications (system_notifications)', model: db.systemNotification },
-        { name: 'Exams (exams)', model: db.exam },
-        { name: 'Exam Marks (exam_marks)', model: db.examMark },
-        { name: 'Audit Logs (audit_logs)', model: db.auditLog },
+        { name: 'Financial Vouchers (financial_transactions)', model: dbAny.financialTransaction },
+        { name: 'Central Account Ledger (account_transactions)', model: dbAny.accountTransaction },
+        { name: 'Account Adjustments (account_adjustments)', model: dbAny.accountAdjustment },
+        { name: 'Fee Payments (fee_payments)', model: dbAny.feePayment },
+        { name: 'Purchase Orders (purchase_orders)', model: dbAny.purchaseOrder },
+        { name: 'Sales Items (sales_items)', model: dbAny.salesItem },
+        { name: 'Inventory Items (inventory_items)', model: dbAny.inventoryItem },
+        { name: 'Announcements (announcements)', model: dbAny.announcement },
+        { name: 'Notifications (system_notifications)', model: dbAny.systemNotification },
+        { name: 'Exams (exams)', model: dbAny.exam },
+        { name: 'Exam Marks (exam_marks)', model: dbAny.examMark },
+        { name: 'Audit Logs (audit_logs)', model: dbAny.auditLog },
       ];
 
       for (const item of tablesToClean) {
-        const before = await (item.model as any).count();
-        if (before > 0) {
-          await (item.model as any).deleteMany({});
+        if (item.model) {
+          const before = await item.model.count();
+          if (before > 0) {
+            await item.model.deleteMany({});
+          }
+          report.push({
+            table: item.name,
+            rowsBefore: before,
+            rowsDeleted: before,
+            rowsRemaining: 0,
+            status: 'Cleaned',
+          });
         }
-        report.push({
-          table: item.name,
-          rowsBefore: before,
-          rowsDeleted: before,
-          rowsRemaining: 0,
-          status: 'Cleaned',
-        });
       }
 
       // Reset financial accounts current balance back to opening balance
-      const accounts = await db.financialAccount.findMany();
-      for (const acc of accounts) {
-        await db.financialAccount.update({
-          where: { id: acc.id },
-          data: { currentBalance: acc.openingBalance },
-        });
+      if (dbAny.financialAccount) {
+        const accounts = await dbAny.financialAccount.findMany();
+        for (const acc of accounts) {
+          await dbAny.financialAccount.update({
+            where: { id: acc.id },
+            data: { currentBalance: acc.openingBalance },
+          });
+        }
       }
 
       return NextResponse.json({

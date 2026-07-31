@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     if (isDbConnected()) {
-      const accounts = await db.financialAccount.findMany({
+      const accounts = await (db as any).financialAccount.findMany({
         orderBy: { createdAt: 'desc' },
       });
       return NextResponse.json({ success: true, data: accounts });
@@ -30,9 +30,9 @@ export async function POST(request: Request) {
     // Action: Seed default accounts
     if (body.action === 'seed_defaults') {
       if (isDbConnected()) {
-        const existingCount = await db.financialAccount.count();
+        const existingCount = await (db as any).financialAccount.count();
         if (existingCount === 0) {
-          await db.financialAccount.createMany({
+          await (db as any).financialAccount.createMany({
             data: [
               {
                 id: 'acc-main-001',
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
             ],
           });
         }
-        const accounts = await db.financialAccount.findMany();
+        const accounts = await (db as any).financialAccount.findMany();
         return NextResponse.json({ success: true, data: accounts }, { status: 201 });
       }
 
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     };
 
     if (isDbConnected()) {
-      const created = await db.financialAccount.create({
+      const created = await (db as any).financialAccount.create({
         data: accountData,
       });
       return NextResponse.json({ success: true, data: created }, { status: 201 });
@@ -113,7 +113,7 @@ export async function PUT(request: Request) {
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
     if (isDbConnected()) {
-      const updated = await db.financialAccount.update({
+      const updated = await (db as any).financialAccount.update({
         where: { id },
         data: updates,
       });
@@ -136,7 +136,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
     if (isDbConnected()) {
-      await db.financialAccount.delete({
+      await (db as any).financialAccount.delete({
         where: { id },
       });
       return NextResponse.json({ success: true });
