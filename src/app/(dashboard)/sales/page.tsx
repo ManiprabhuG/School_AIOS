@@ -16,9 +16,12 @@ import { ShoppingCart, Receipt, User, Tag, CreditCard, FileText } from 'lucide-r
 export default function SalesPage() {
   const {
     sales,
+    financialAccounts,
+    recordAccountTransaction,
     auditLogs,
     addRecord,
     updateRecord,
+
     softDeleteRecord,
     restoreRecord,
     permanentDeleteRecord,
@@ -49,7 +52,20 @@ export default function SalesPage() {
     { name: 'invoiceNo', label: 'Invoice Number (e.g. INV-2026-1025)', type: 'text' },
     { name: 'customerName', label: 'Customer / Student Name', type: 'text' },
     {
+      name: 'accountId',
+      label: 'Deposit Account (School Fund Account)',
+      type: 'select',
+      options:
+        financialAccounts.length > 0
+          ? financialAccounts.map((a) => ({
+              label: `${a.accountName} (${a.accountType === 'Cash Fund Account' || a.accountType === 'CASH' ? 'Cash' : 'Bank'}) - ₹${a.currentBalance.toLocaleString('en-IN')}`,
+              value: a.id,
+            }))
+          : [{ label: 'Main School Account', value: 'acc-main-001' }],
+    },
+    {
       name: 'customerType',
+
       label: 'Customer Type',
       type: 'select',
       options: [
@@ -219,12 +235,28 @@ export default function SalesPage() {
       };
       addRecord('sales', newSale);
 
+      recordAccountTransaction({
+        txnNumber: `TXN-SALE-${newSale.invoiceNo}`,
+        accountId: data.accountId || '',
+        accountName: '',
+        date: newSale.date,
+        referenceNo: newSale.invoiceNo,
+        module: 'SALES',
+        transactionType: 'INCOME',
+        description: `Uniform/Store Sale: ${newSale.itemName} (${newSale.customerName})`,
+        paymentMethod: newSale.paymentMethod,
+        credit: newSale.netAmount,
+        debit: 0,
+        createdBy: 'Sales Desk',
+      });
+
       try {
         await fetch('/api/sales', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id: newSale.id,
+            accountId: data.accountId,
             invoiceNo: newSale.invoiceNo,
             customerName: newSale.customerName,
             customerType: newSale.customerType,
@@ -241,6 +273,7 @@ export default function SalesPage() {
       } catch (err) {
         console.error('Failed to save sales item to DB:', err);
       }
+
 
       if (!saveAndNew) setIsAddModalOpen(false);
     }

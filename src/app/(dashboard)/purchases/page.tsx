@@ -15,9 +15,12 @@ export default function PurchasesPage() {
   const {
     purchases,
     suppliers,
+    financialAccounts,
+    recordAccountTransaction,
     auditLogs,
     addRecord,
     updateRecord,
+
     softDeleteRecord,
     restoreRecord,
     permanentDeleteRecord,
@@ -54,7 +57,20 @@ export default function PurchasesPage() {
       type: 'select',
       options: supplierOptions.length > 0 ? supplierOptions : [{ label: 'Raymond School Uniforms', value: 'Raymond School Uniforms' }],
     },
+    {
+      name: 'accountId',
+      label: 'Payment Account (Disbursement Account)',
+      type: 'select',
+      options:
+        financialAccounts.length > 0
+          ? financialAccounts.map((a) => ({
+              label: `${a.accountName} (${a.accountType === 'Cash Fund Account' || a.accountType === 'CASH' ? 'Cash' : 'Bank'}) - ₹${a.currentBalance.toLocaleString('en-IN')}`,
+              value: a.id,
+            }))
+          : [{ label: 'Main School Account', value: 'acc-main-001' }],
+    },
     { name: 'orderDate', label: 'Order Date', type: 'date' },
+
     { name: 'deliveryDate', label: 'Expected Delivery Date', type: 'date' },
     { name: 'itemsCount', label: 'Total Quantity of Items', type: 'number' },
     { name: 'totalAmount', label: 'Total PO Invoice Amount (₹)', type: 'number' },
@@ -149,6 +165,23 @@ export default function PurchasesPage() {
       };
       addRecord('purchases', newPO);
 
+      if (newPO.status === 'Paid' && newPO.totalAmount > 0) {
+        recordAccountTransaction({
+          txnNumber: `TXN-PO-${newPO.poNumber}`,
+          accountId: data.accountId || '',
+          accountName: '',
+          date: newPO.orderDate,
+          referenceNo: newPO.poNumber,
+          module: 'PURCHASE',
+          transactionType: 'EXPENSE',
+          description: `Purchase Payment: Vendor ${newPO.supplierName} (${newPO.itemsCount} items)`,
+          paymentMethod: 'Bank Transfer',
+          debit: newPO.totalAmount,
+          credit: 0,
+          createdBy: 'Purchase Manager',
+        });
+      }
+
       try {
         await fetch('/api/purchases', {
           method: 'POST',
@@ -173,6 +206,7 @@ export default function PurchasesPage() {
       if (!saveAndNew) setIsAddModalOpen(false);
     }
   };
+
 
   return (
     <div className="space-y-6">

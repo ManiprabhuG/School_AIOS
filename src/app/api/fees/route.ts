@@ -65,6 +65,43 @@ export async function POST(request: Request) {
         data: dataObj,
       });
 
+      // Record Account Ledger transaction if account is specified or fallback
+      let accountId = body.accountId;
+      if (!accountId) {
+        const defaultAcc = dataObj.paymentMode.toLowerCase().includes('cash')
+          ? await db.financialAccount.findFirst({ where: { accountType: 'CASH' } })
+          : await db.financialAccount.findFirst({ where: { accountType: 'BANK' } });
+        accountId = defaultAcc?.id;
+      }
+
+      if (accountId) {
+        const account = await db.financialAccount.findUnique({ where: { id: accountId } });
+        if (account) {
+          const newBalance = account.currentBalance + dataObj.amountPaid;
+          await db.financialAccount.update({
+            where: { id: accountId },
+            data: { currentBalance: newBalance },
+          });
+          await db.accountTransaction.create({
+            data: {
+              txnNumber: `TXN-FEE-${created.receiptNo}`,
+              accountId: account.id,
+              accountName: account.accountName,
+              date: dataObj.paymentDate,
+              referenceNo: created.receiptNo,
+              module: 'FEES',
+              transactionType: 'INCOME',
+              description: `Fee Collection: ${created.studentName} (${created.className}-${created.section}) - ${created.feeType}`,
+              paymentMethod: dataObj.paymentMode,
+              credit: dataObj.amountPaid,
+              debit: 0,
+              runningBalance: newBalance,
+              createdBy: dataObj.cashier,
+            },
+          });
+        }
+      }
+
       const mapped = {
         ...created,
         amount: created.amountPaid,
@@ -80,7 +117,25 @@ export async function POST(request: Request) {
 
     const store = useCrudStore.getState();
     store.addRecord('feePayments', body);
+
+    // Record central account ledger entry in store mode
+    store.recordAccountTransaction({
+      txnNumber: `TXN-FEE-${dataObj.receiptNo}`,
+      accountId: body.accountId || '',
+      accountName: '',
+      date: dataObj.paymentDate,
+      referenceNo: dataObj.receiptNo,
+      module: 'FEES',
+      transactionType: 'INCOME',
+      description: `Fee Collection: ${dataObj.studentName} (${dataObj.className}-${dataObj.section}) - ${dataObj.feeType}`,
+      paymentMethod: dataObj.paymentMode,
+      credit: dataObj.amountPaid,
+      debit: 0,
+      createdBy: dataObj.cashier,
+    });
+
     return NextResponse.json({ success: true, data: body }, { status: 201 });
+
   } catch (error: any) {
     console.error('Failed to record fee payment:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Failed to record fee payment' }, { status: 500 });

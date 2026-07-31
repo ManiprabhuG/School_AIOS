@@ -397,3 +397,70 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+model FinancialAccount {
+  id             String               @id @default(uuid())
+  accountName    String
+  accountCode    String               @unique
+  accountType    String               // BANK | CASH
+  bankName       String?
+  branch         String?
+  accountNumber  String?
+  ifscCode       String?
+  openingBalance Float                @default(0)
+  currentBalance Float                @default(0)
+  openingDate    String
+  status         String               @default("ACTIVE") // ACTIVE | INACTIVE | CLOSED
+  description    String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  transactions   AccountTransaction[]
+
+  @@map("financial_accounts")
+}
+
+model AccountTransaction {
+  id              String           @id @default(uuid())
+  txnNumber       String           @unique
+  accountId       String
+  accountName     String
+  date            String
+  referenceNo     String?
+  module          String           // FEES | PURCHASE | SALES | FINANCE | PAYROLL | OTHER_INCOME | REFUND | TRANSFER | ADJUSTMENT
+  transactionType String           // INCOME | EXPENSE | TRANSFER | ADJUSTMENT
+  description     String
+  paymentMethod   String           // Cash | UPI | Bank Transfer | Cheque | Card | Online Payment
+  debit           Float            @default(0)
+  credit          Float            @default(0)
+  runningBalance  Float            @default(0)
+  createdBy       String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  account         FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("account_transactions")
+}
+
+model AccountAdjustment {
+  id          String   @id @default(uuid())
+  accountId   String
+  accountName String
+  type        String   // CREDIT | DEBIT
+  amount      Float
+  reason      String
+  adjustedBy  String
+  date        String
+  createdAt   DateTime @default(now())
+
+  @@map("account_adjustments")
+}
+
+model PaymentMethodConfig {
+  id                 String   @id @default("default_pm_config")
+  digitalLabel       String   @default("Digital Collections")
+  preventNegativeBal Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+
+  @@map("payment_method_configs")
+}
+

@@ -23,7 +23,9 @@ import {
   BookOpen,
   FileText,
   SlidersHorizontal,
+  PieChart,
 } from 'lucide-react';
+
 
 export default function ReportsPage() {
   const store = useCrudStore();
@@ -188,6 +190,83 @@ export default function ReportsPage() {
         { key: 'totalMarks', label: 'Total Marks' },
       ],
     },
+    {
+      title: 'Fund Summary & Balances',
+      desc: 'Central school accounts opening, credits, debits & closing balance',
+      count: `${store.financialAccounts.length} Fund Accounts`,
+      data: store.financialAccounts.map((a) => {
+        const txs = store.accountTransactions.filter((t) => t.accountId === a.id);
+        const credits = txs.reduce((sum, t) => sum + (t.credit || 0), 0);
+        const debits = txs.reduce((sum, t) => sum + (t.debit || 0), 0);
+        return {
+          accountName: a.accountName,
+          accountCode: a.accountCode,
+          accountType: a.accountType,
+          openingBalance: a.openingBalance,
+          totalCredits: credits,
+          totalDebits: debits,
+          closingBalance: a.currentBalance,
+        };
+      }),
+      filename: 'ABS_Fund_Summary_Report',
+      icon: Landmark,
+      cols: [
+        { key: 'accountName', label: 'Account Name' },
+        { key: 'accountCode', label: 'Code' },
+        { key: 'accountType', label: 'Type' },
+        { key: 'openingBalance', label: 'Opening Bal' },
+        { key: 'totalCredits', label: 'Total Income (+)' },
+        { key: 'totalDebits', label: 'Total Expense (-)' },
+        { key: 'closingBalance', label: 'Closing Bal' },
+      ],
+    },
+    {
+      title: 'Account-Wise Central Ledger',
+      desc: 'Full audit history of all fund account credits and debits',
+      count: `${store.accountTransactions.length} Ledger Entries`,
+      data: store.accountTransactions,
+      filename: 'ABS_Account_Wise_Ledger',
+      icon: FileText,
+      cols: [
+        { key: 'date', label: 'Date' },
+        { key: 'txnNumber', label: 'Voucher No' },
+        { key: 'accountName', label: 'Account Name' },
+        { key: 'module', label: 'Module' },
+        { key: 'description', label: 'Description' },
+        { key: 'paymentMethod', label: 'Payment Method' },
+        { key: 'credit', label: 'Credit (+)' },
+        { key: 'debit', label: 'Debit (-)' },
+        { key: 'runningBalance', label: 'Balance' },
+      ],
+    },
+    {
+      title: 'Payment Method Analytics',
+      desc: `Cash vs ${store.pmConfig.digitalLabel || 'Digital Collections'} breakdown across accounts`,
+      count: 'Payment Mode Analysis',
+      data: ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card'].map((method) => {
+        const txs = store.accountTransactions.filter((t) => t.paymentMethod?.toLowerCase() === method.toLowerCase());
+        const income = txs.reduce((sum, t) => sum + (t.credit || 0), 0);
+        const expense = txs.reduce((sum, t) => sum + (t.debit || 0), 0);
+        const displayLabel = method === 'UPI' ? store.pmConfig.digitalLabel || 'Digital Collections' : method;
+        return {
+          paymentMethod: displayLabel,
+          transactionCount: txs.length,
+          totalCollections: income,
+          totalDisbursements: expense,
+          netMovement: income - expense,
+        };
+      }),
+      filename: 'ABS_Payment_Method_Analysis',
+      icon: PieChart,
+      cols: [
+        { key: 'paymentMethod', label: 'Payment Instrument' },
+        { key: 'transactionCount', label: 'Txn Count' },
+        { key: 'totalCollections', label: 'Total Receipts' },
+        { key: 'totalDisbursements', label: 'Disbursements' },
+        { key: 'netMovement', label: 'Net Position' },
+      ],
+    },
+
   ];
 
   const handleOpenReportPrint = (rep: typeof reportsList[0]) => {

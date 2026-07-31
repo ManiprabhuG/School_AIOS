@@ -21,6 +21,10 @@ import {
   ClassEntity,
   SubjectEntity,
   SectionEntity,
+  FinancialAccount,
+  AccountTransaction,
+  AccountAdjustment,
+  PaymentMethodConfig,
 } from '@/types';
 import {
   initialStudents,
@@ -59,7 +63,10 @@ export type EntityName =
   | 'subjects'
   | 'sections'
   | 'admins'
-  | 'rolePermissions';
+  | 'rolePermissions'
+  | 'financialAccounts'
+  | 'accountTransactions'
+  | 'accountAdjustments';
 
 export interface CrudState {
   students: Student[];
@@ -82,6 +89,19 @@ export interface CrudState {
   sections: SectionEntity[];
   admins: User[];
   rolePermissions: RolePermission[];
+  financialAccounts: FinancialAccount[];
+  accountTransactions: AccountTransaction[];
+  accountAdjustments: AccountAdjustment[];
+  pmConfig: PaymentMethodConfig;
+
+  // Account Operations
+  seedDefaultAccounts: () => void;
+  addFinancialAccount: (account: Partial<FinancialAccount>) => void;
+  updateFinancialAccount: (id: string, updates: Partial<FinancialAccount>) => void;
+  recordAccountTransaction: (tx: Omit<AccountTransaction, 'id' | 'runningBalance'>) => AccountTransaction | null;
+  adjustAccountBalance: (accountId: string, type: 'CREDIT' | 'DEBIT', amount: number, reason: string, user: string) => void;
+  transferFunds: (fromAccountId: string, toAccountId: string, amount: number, description: string, user: string) => boolean;
+  setPmConfig: (config: Partial<PaymentMethodConfig>) => void;
 
   // Generic Operations
   addRecord: (entity: EntityName, item: any) => void;
@@ -95,6 +115,7 @@ export interface CrudState {
   logAudit: (log: Omit<AuditLog, 'id' | 'timestamp'>) => void;
   resetToDefaultData: () => void;
 }
+
 
 const initialClasses: ClassEntity[] = [];
 const initialSubjects: SubjectEntity[] = [];
@@ -165,11 +186,318 @@ export const useCrudStore = create<CrudState>()(
       financials: [],
       notifications: [],
       auditLogs: [],
-      classes: [],
-      subjects: [],
-      sections: [],
+      classes: initialClasses,
+      subjects: initialSubjects,
+      sections: initialSections,
       admins: initialAdmins,
       rolePermissions: initialRolePermissions,
+      financialAccounts: [],
+      accountTransactions: [],
+      accountAdjustments: [],
+      pmConfig: {
+        digitalLabel: 'Digital Collections',
+        preventNegativeBal: false,
+      },
+
+
+      seedDefaultAccounts: () => {
+        const state = get();
+        if (state.financialAccounts.length > 0) return;
+        const now = new Date().toISOString().split('T')[0];
+        const mainAcc: FinancialAccount = {
+          id: 'acc-main-001',
+          accountName: 'Main School Account',
+          accountCode: 'ACC-MAIN-001',
+          accountType: 'School Bank Account',
+          bankName: 'State Bank of India',
+          branch: 'Main Branch, Knowledge City',
+          accountNumber: '30129844001',
+          ifscCode: 'SBIN0004012',
+          openingBalance: 500000,
+          currentBalance: 500000,
+          openingDate: '2026-04-01',
+          status: 'ACTIVE',
+          description: 'Central operational bank account for fee receipts and direct disbursements.',
+          createdAt: now,
+          updatedAt: now,
+        };
+        const cashAcc: FinancialAccount = {
+          id: 'acc-cash-001',
+          accountName: 'Cash In Hand',
+          accountCode: 'ACC-CASH-001',
+          accountType: 'Cash Fund Account',
+          openingBalance: 50000,
+          currentBalance: 50000,
+          openingDate: '2026-04-01',
+          status: 'ACTIVE',
+          description: 'Main cash fund account for physical cash collected and office cash expenses.',
+          createdAt: now,
+          updatedAt: now,
+        };
+        set({ financialAccounts: [mainAcc, cashAcc] });
+        get().logAudit({
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          action: 'CREATE',
+          module: 'financialAccounts',
+          recordId: 'seed-default-accounts',
+          details: 'Seeded default financial accounts: Main School Account & Cash In Hand',
+        });
+      },
+
+      addFinancialAccount: (accountData) => {
+        notifyUserActivity();
+        const now = new Date().toISOString().split('T')[0];
+        const newAcc: FinancialAccount = {
+          id: accountData.id || `acc-${Date.now()}`,
+          accountName: accountData.accountName || 'New Account',
+          accountCode: accountData.accountCode || `ACC-${Math.floor(100 + Math.random() * 900)}`,
+          accountType: accountData.accountType || 'School Bank Account',
+          bankName: accountData.bankName || '',
+          branch: accountData.branch || '',
+          accountNumber: accountData.accountNumber || '',
+          ifscCode: accountData.ifscCode || '',
+          openingBalance: Number(accountData.openingBalance) || 0,
+          currentBalance: Number(accountData.openingBalance) || 0,
+          openingDate: accountData.openingDate || now,
+          status: accountData.status || 'ACTIVE',
+          description: accountData.description || '',
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((state) => ({ financialAccounts: [newAcc, ...state.financialAccounts] }));
+        get().logAudit({
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          action: 'CREATE',
+          module: 'financialAccounts',
+          recordId: newAcc.id,
+          details: `Created new financial account: ${newAcc.accountName} (${newAcc.accountCode})`,
+        });
+      },
+
+      updateFinancialAccount: (id, updates) => {
+        notifyUserActivity();
+        const now = new Date().toISOString().split('T')[0];
+        set((state) => ({
+          financialAccounts: state.financialAccounts.map((acc) =>
+            acc.id === id ? { ...acc, ...updates, updatedAt: now } : acc
+          ),
+        }));
+        get().logAudit({
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          action: 'UPDATE',
+          module: 'financialAccounts',
+          recordId: id,
+          details: `Updated financial account (ID: ${id})`,
+        });
+      },
+
+      recordAccountTransaction: (txData) => {
+        notifyUserActivity();
+        const state = get();
+        const accounts = state.financialAccounts;
+
+        let targetAccount = accounts.find((a) => a.id === txData.accountId);
+        if (!targetAccount && accounts.length > 0) {
+          targetAccount = txData.paymentMethod?.toLowerCase().includes('cash')
+            ? accounts.find((a) => a.accountType === 'Cash Fund Account' || a.accountName.toLowerCase().includes('cash')) || accounts[0]
+            : accounts.find((a) => a.accountType === 'School Bank Account' || a.accountName.toLowerCase().includes('main')) || accounts[0];
+        }
+
+        if (!targetAccount) return null;
+
+        const isCredit = txData.transactionType === 'INCOME' || (txData.credit && txData.credit > 0);
+        const amount = isCredit ? Number(txData.credit || 0) : Number(txData.debit || 0);
+
+        if (!isCredit && state.pmConfig.preventNegativeBal && targetAccount.currentBalance < amount) {
+          alert(`Transaction Blocked: Insufficient funds in ${targetAccount.accountName}. Current balance: ₹${targetAccount.currentBalance}`);
+          return null;
+        }
+
+        const newBalance = isCredit
+          ? targetAccount.currentBalance + amount
+          : targetAccount.currentBalance - amount;
+
+        const now = new Date().toISOString().split('T')[0];
+        const newTx: AccountTransaction = {
+          id: `atx-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          txnNumber: txData.txnNumber || `LATX-${Date.now().toString().slice(-6)}`,
+          accountId: targetAccount.id,
+          accountName: targetAccount.accountName,
+          date: txData.date || now,
+          referenceNo: txData.referenceNo || '',
+          module: txData.module || 'FINANCE',
+          transactionType: isCredit ? 'INCOME' : 'EXPENSE',
+          description: txData.description || 'Account Movement',
+          paymentMethod: txData.paymentMethod || 'Cash',
+          debit: isCredit ? 0 : amount,
+          credit: isCredit ? amount : 0,
+          runningBalance: newBalance,
+          createdBy: txData.createdBy || currentUser.name,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((prev) => ({
+          financialAccounts: prev.financialAccounts.map((acc) =>
+            acc.id === targetAccount!.id ? { ...acc, currentBalance: newBalance, updatedAt: now } : acc
+          ),
+          accountTransactions: [newTx, ...prev.accountTransactions],
+        }));
+
+        get().logAudit({
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          action: isCredit ? 'CREDIT' : 'DEBIT',
+          module: 'accountTransactions',
+          recordId: newTx.id,
+          details: `${isCredit ? 'Credited' : 'Debited'} ₹${amount} to ${targetAccount.accountName}. New Balance: ₹${newBalance}`,
+        });
+
+        return newTx;
+      },
+
+      adjustAccountBalance: (accountId, type, amount, reason, user) => {
+        notifyUserActivity();
+        const state = get();
+        const account = state.financialAccounts.find((a) => a.id === accountId);
+        if (!account) return;
+
+        const newBalance = type === 'CREDIT' ? account.currentBalance + amount : account.currentBalance - amount;
+        const now = new Date().toISOString().split('T')[0];
+
+        const adj: AccountAdjustment = {
+          id: `adj-${Date.now()}`,
+          accountId,
+          accountName: account.accountName,
+          type,
+          amount,
+          reason,
+          adjustedBy: user,
+          date: now,
+          createdAt: new Date().toISOString(),
+        };
+
+        const tx: AccountTransaction = {
+          id: `atx-adj-${Date.now()}`,
+          txnNumber: `ADJ-${Date.now().toString().slice(-6)}`,
+          accountId,
+          accountName: account.accountName,
+          date: now,
+          module: 'ADJUSTMENT',
+          transactionType: 'ADJUSTMENT',
+          description: `Balance Adjustment: ${reason}`,
+          paymentMethod: 'Internal Adjustment',
+          debit: type === 'DEBIT' ? amount : 0,
+          credit: type === 'CREDIT' ? amount : 0,
+          runningBalance: newBalance,
+          createdBy: user,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((prev) => ({
+          financialAccounts: prev.financialAccounts.map((a) =>
+            a.id === accountId ? { ...a, currentBalance: newBalance, updatedAt: now } : a
+          ),
+          accountAdjustments: [adj, ...prev.accountAdjustments],
+          accountTransactions: [tx, ...prev.accountTransactions],
+        }));
+
+        get().logAudit({
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          action: 'ADJUSTMENT',
+          module: 'financialAccounts',
+          recordId: accountId,
+          details: `Manual balance adjustment (${type}) of ₹${amount} for ${account.accountName}. Reason: ${reason}`,
+        });
+      },
+
+      transferFunds: (fromAccountId, toAccountId, amount, description, user) => {
+        notifyUserActivity();
+        const state = get();
+        const fromAcc = state.financialAccounts.find((a) => a.id === fromAccountId);
+        const toAcc = state.financialAccounts.find((a) => a.id === toAccountId);
+
+        if (!fromAcc || !toAcc || fromAccountId === toAccountId) {
+          alert('Invalid source or destination account for transfer.');
+          return false;
+        }
+
+        if (state.pmConfig.preventNegativeBal && fromAcc.currentBalance < amount) {
+          alert(`Transfer Blocked: Source account ${fromAcc.accountName} has insufficient balance (₹${fromAcc.currentBalance}).`);
+          return false;
+        }
+
+        const now = new Date().toISOString().split('T')[0];
+        const fromBal = fromAcc.currentBalance - amount;
+        const toBal = toAcc.currentBalance + amount;
+
+        const outTx: AccountTransaction = {
+          id: `atx-tr-out-${Date.now()}`,
+          txnNumber: `TR-OUT-${Date.now().toString().slice(-6)}`,
+          accountId: fromAccountId,
+          accountName: fromAcc.accountName,
+          date: now,
+          module: 'TRANSFER',
+          transactionType: 'TRANSFER',
+          description: `Transfer Out to ${toAcc.accountName}: ${description}`,
+          paymentMethod: 'Bank Transfer',
+          debit: amount,
+          credit: 0,
+          runningBalance: fromBal,
+          createdBy: user,
+          createdAt: new Date().toISOString(),
+        };
+
+        const inTx: AccountTransaction = {
+          id: `atx-tr-in-${Date.now()}`,
+          txnNumber: `TR-IN-${Date.now().toString().slice(-6)}`,
+          accountId: toAccountId,
+          accountName: toAcc.accountName,
+          date: now,
+          module: 'TRANSFER',
+          transactionType: 'TRANSFER',
+          description: `Transfer In from ${fromAcc.accountName}: ${description}`,
+          paymentMethod: 'Bank Transfer',
+          debit: 0,
+          credit: amount,
+          runningBalance: toBal,
+          createdBy: user,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((prev) => ({
+          financialAccounts: prev.financialAccounts.map((a) => {
+            if (a.id === fromAccountId) return { ...a, currentBalance: fromBal, updatedAt: now };
+            if (a.id === toAccountId) return { ...a, currentBalance: toBal, updatedAt: now };
+            return a;
+          }),
+          accountTransactions: [inTx, outTx, ...prev.accountTransactions],
+        }));
+
+        get().logAudit({
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          action: 'TRANSFER',
+          module: 'financialAccounts',
+          recordId: `${fromAccountId}->${toAccountId}`,
+          details: `Transferred ₹${amount} from ${fromAcc.accountName} to ${toAcc.accountName}. Remarks: ${description}`,
+        });
+
+        return true;
+      },
+
+      setPmConfig: (config) => {
+        set((prev) => ({ pmConfig: { ...prev.pmConfig, ...config } }));
+      },
 
       logAudit: (log) => {
         notifyUserActivity();
@@ -180,6 +508,7 @@ export const useCrudStore = create<CrudState>()(
         };
         set((state) => ({ auditLogs: [newLog, ...state.auditLogs] }));
       },
+
 
       addRecord: (entity, item) => {
         notifyUserActivity();
@@ -386,10 +715,15 @@ export const useCrudStore = create<CrudState>()(
           classes: [],
           subjects: [],
           sections: [],
+          financialAccounts: [],
+          accountTransactions: [],
+          accountAdjustments: [],
+          pmConfig: { digitalLabel: 'Digital Collections', preventNegativeBal: false },
           admins: [currentUser],
           rolePermissions: initialRolePermissions,
         });
       },
+
     }),
     {
       name: 'abs_school_erp_crud_store_v1',

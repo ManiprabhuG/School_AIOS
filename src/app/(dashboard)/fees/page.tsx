@@ -19,9 +19,12 @@ export default function FeesPage() {
     feePayments,
     feeStructures,
     students,
+    financialAccounts,
+    recordAccountTransaction,
     auditLogs,
     addRecord,
     updateRecord,
+
     softDeleteRecord,
     restoreRecord,
     permanentDeleteRecord,
@@ -72,6 +75,18 @@ export default function FeesPage() {
       options: studentOptions.length > 0 ? studentOptions : [{ label: 'Aarav Verma (10th-A)', value: 'Aarav Verma' }],
     },
     {
+      name: 'accountId',
+      label: 'Target School Account *',
+      type: 'select',
+      options:
+        financialAccounts.length > 0
+          ? financialAccounts.map((a) => ({
+              label: `${a.accountName} (${a.accountType === 'Cash Fund Account' || a.accountType === 'CASH' ? 'Cash' : 'Bank'}) - ₹${a.currentBalance.toLocaleString('en-IN')}`,
+              value: a.id,
+            }))
+          : [{ label: 'Main School Account', value: 'acc-main-001' }],
+    },
+    {
       name: 'className',
       label: 'Class',
       type: 'select',
@@ -79,6 +94,7 @@ export default function FeesPage() {
         (c) => ({ label: c, value: c })
       ),
     },
+
     { name: 'amount', label: 'Collected Amount (₹)', type: 'number', placeholder: '0' },
     {
       name: 'feeCategory',
@@ -331,12 +347,29 @@ export default function FeesPage() {
       };
       addRecord('feePayments', newPay);
 
+      // Record Central Account Transaction
+      recordAccountTransaction({
+        txnNumber: `TXN-FEE-${newPay.receiptNo}`,
+        accountId: data.accountId || '',
+        accountName: '',
+        date: newPay.paymentDate,
+        referenceNo: newPay.receiptNo,
+        module: 'FEES',
+        transactionType: 'INCOME',
+        description: `Fee Collection: ${newPay.studentName} (${newPay.className}) - ${newPay.feeCategory}`,
+        paymentMethod: newPay.paymentMode,
+        credit: newPay.amount,
+        debit: 0,
+        createdBy: newPay.collectedBy,
+      });
+
       try {
         await fetch('/api/fees', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id: newPay.id,
+            accountId: data.accountId,
             receiptNo: newPay.receiptNo,
             studentId: newPay.studentId,
             studentName: newPay.studentName,
@@ -360,6 +393,7 @@ export default function FeesPage() {
       if (!saveAndNew) setIsAddModalOpen(false);
     }
   };
+
 
   const handleSaveStructure = (data: Record<string, any>, saveAndNew?: boolean) => {
     const tuition = Number(data.tuitionFee) || 0;

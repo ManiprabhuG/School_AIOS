@@ -49,6 +49,47 @@ export async function POST(request: Request) {
         data: dataObj as any,
       });
 
+      let accountId = body.accountId;
+      if (!accountId) {
+        const defaultAcc = dataObj.paymentMethod.toLowerCase().includes('cash')
+          ? await db.financialAccount.findFirst({ where: { accountType: 'CASH' } })
+          : await db.financialAccount.findFirst({ where: { accountType: 'BANK' } });
+        accountId = defaultAcc?.id;
+      }
+
+      if (accountId) {
+        const account = await db.financialAccount.findUnique({ where: { id: accountId } });
+        if (account) {
+          const isIncome = dataObj.type === 'Income';
+          const newBalance = isIncome
+            ? account.currentBalance + dataObj.amount
+            : account.currentBalance - dataObj.amount;
+
+          await db.financialAccount.update({
+            where: { id: accountId },
+            data: { currentBalance: newBalance },
+          });
+
+          await db.accountTransaction.create({
+            data: {
+              txnNumber: `ATX-${dataObj.txnNumber}`,
+              accountId: account.id,
+              accountName: account.accountName,
+              date: dataObj.date,
+              referenceNo: dataObj.referenceNo || dataObj.txnNumber,
+              module: 'FINANCE',
+              transactionType: isIncome ? 'INCOME' : 'EXPENSE',
+              description: `Voucher (${dataObj.category}): ${dataObj.description}`,
+              paymentMethod: dataObj.paymentMethod,
+              credit: isIncome ? dataObj.amount : 0,
+              debit: isIncome ? 0 : dataObj.amount,
+              runningBalance: newBalance,
+              createdBy: dataObj.handledBy,
+            },
+          });
+        }
+      }
+
       const mapped = {
         ...created,
         transactionNo: created.txnNumber,
@@ -61,7 +102,25 @@ export async function POST(request: Request) {
 
     const store = useCrudStore.getState();
     store.addRecord('financials', dataObj);
+
+    // Record central account transaction in store mode
+    store.recordAccountTransaction({
+      txnNumber: `ATX-${dataObj.txnNumber}`,
+      accountId: body.accountId || '',
+      accountName: '',
+      date: dataObj.date,
+      referenceNo: dataObj.referenceNo || dataObj.txnNumber,
+      module: 'FINANCE',
+      transactionType: dataObj.type === 'Income' ? 'INCOME' : 'EXPENSE',
+      description: `Voucher (${dataObj.category}): ${dataObj.description}`,
+      paymentMethod: dataObj.paymentMethod,
+      credit: dataObj.type === 'Income' ? dataObj.amount : 0,
+      debit: dataObj.type === 'Income' ? 0 : dataObj.amount,
+      createdBy: dataObj.handledBy,
+    });
+
     return NextResponse.json({ success: true, data: dataObj }, { status: 201 });
+
   } catch (error: any) {
     console.error('Failed to create financial transaction:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Failed to create financial transaction' }, { status: 500 });

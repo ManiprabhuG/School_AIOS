@@ -335,3 +335,56 @@ export interface SectionEntity extends BaseAuditEntity {
   capacity: number;
   classTeacher: string;
 }
+
+export interface FinancialAccount extends BaseAuditEntity {
+  id: string;
+  accountName: string;
+  accountCode: string;
+  accountType: 'School Bank Account' | 'Cash Fund Account' | 'BANK' | 'CASH';
+  bankName?: string;
+  branch?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  openingBalance: number;
+  currentBalance: number;
+  openingDate: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'CLOSED' | 'Active' | 'Inactive';
+  description?: string;
+}
+
+export interface AccountTransaction extends BaseAuditEntity {
+  id: string;
+  txnNumber: string;
+  accountId: string;
+  accountName: string;
+  date: string;
+  referenceNo?: string;
+  module: 'FEES' | 'PURCHASE' | 'SALES' | 'FINANCE' | 'PAYROLL' | 'OTHER_INCOME' | 'REFUND' | 'TRANSFER' | 'ADJUSTMENT' | string;
+  transactionType: 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'ADJUSTMENT' | string;
+  description: string;
+  paymentMethod: 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque' | 'Card' | 'Online Payment' | string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  createdBy: string;
+}
+
+export interface AccountAdjustment {
+  id: string;
+  accountId: string;
+  accountName: string;
+  type: 'CREDIT' | 'DEBIT';
+  amount: number;
+  reason: string;
+  adjustedBy: string;
+  date: string;
+  createdAt?: string;
+}
+
+export interface PaymentMethodConfig {
+  id?: string;
+  digitalLabel: 'Digital Collections' | 'Electronic Payments' | 'Online Collections' | string;
+  preventNegativeBal: boolean;
+  updatedAt?: string;
+}
+
