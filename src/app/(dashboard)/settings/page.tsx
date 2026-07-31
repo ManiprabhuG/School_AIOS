@@ -866,29 +866,73 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Digital Payment Wording Selector */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-3">
-                <div>
-                  <strong className="text-slate-900 dark:text-white font-bold block text-sm">
-                    Preferred Digital Collections Report Wording
-                  </strong>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
-                    Select preferred wording for UPI/Online transactions in executive financial reports.
-                  </p>
+                {/* Digital Payment Wording Selector */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-3">
+                  <div>
+                    <strong className="text-slate-900 dark:text-white font-bold block text-sm">
+                      Preferred Digital Collections Report Wording
+                    </strong>
+                    <p className="text-slate-500 text-[11px] mt-0.5">
+                      Select preferred wording for UPI/Online transactions in executive financial reports.
+                    </p>
+                  </div>
+                  <select
+                    value={pmConfig.digitalLabel}
+                    onChange={(e) => setPmConfig({ digitalLabel: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold"
+                  >
+                    <option value="Digital Collections">Digital Collections</option>
+                    <option value="Electronic Payments">Electronic Payments</option>
+                    <option value="Online Collections">Online Collections</option>
+                    <option value="Digital Transactions">Digital Transactions</option>
+                  </select>
                 </div>
-                <select
-                  value={pmConfig.digitalLabel}
-                  onChange={(e) => setPmConfig({ digitalLabel: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold"
-                >
-                  <option value="Digital Collections">Digital Collections</option>
-                  <option value="Electronic Payments">Electronic Payments</option>
-                  <option value="Online Collections">Online Collections</option>
-                  <option value="Digital Transactions">Digital Transactions</option>
-                </select>
+
+                {/* Safe Reset Financial Data Panel */}
+                <div className="md:col-span-2 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 space-y-3">
+                  <div>
+                    <strong className="text-rose-900 dark:text-rose-300 font-bold block text-sm flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-600" /> Reset All Financial & Ledger Data
+                    </strong>
+                    <p className="text-rose-700 dark:text-rose-400 text-[11px] mt-0.5">
+                      Safely clear all test financial vouchers, central account ledger entries, fee receipts, purchases, and sales.
+                      <strong className="block mt-1 font-bold text-rose-800 dark:text-rose-200">
+                        🛡️ Strictly Preserved: Students, Staff, Allocations, Attendance, and Supplier Database will NOT be touched.
+                      </strong>
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (
+                        !confirm(
+                          'Are you sure you want to delete all financial vouchers, ledger entries, fee receipts, purchases, and sales?\n\nStudents, Staff, Allocations, Attendance, and Suppliers will remain COMPLETELY INTACT.'
+                        )
+                      ) {
+                        return;
+                      }
+
+                      try {
+                        const res = await fetch('/api/admin/clear-financial-data', { method: 'POST' });
+                        const json = await res.json();
+                        if (json.success) {
+                          alert(json.message);
+                          window.location.reload();
+                        } else {
+                          alert(json.error || 'Failed to clear financial data');
+                        }
+                      } catch (err) {
+                        console.error('Failed to clear financial data:', err);
+                        alert('Failed to clear financial data');
+                      }
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" /> Reset Financial Ledger Data
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+
         </div>
       )}
 
