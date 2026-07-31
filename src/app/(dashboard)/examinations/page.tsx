@@ -430,13 +430,19 @@ export default function ExaminationsPage() {
             confirmDelete.permanent ? 'permanently delete' : 'soft delete'
           } ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
-          onConfirm={() => {
+          onConfirm={async () => {
             if (confirmDelete.permanent) {
               permanentDeleteRecord(confirmDelete.target, confirmDelete.id);
+              try {
+                await fetch(`/api/exams?id=${confirmDelete.id}`, { method: 'DELETE' });
+              } catch (err) {
+                console.error('Failed to delete exam from DB:', err);
+              }
             } else {
               softDeleteRecord(confirmDelete.target, confirmDelete.id);
             }
           }}
+
         />
       )}
 

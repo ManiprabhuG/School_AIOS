@@ -35,16 +35,13 @@ export default function AnnouncementsPage() {
     fetch('/api/announcements')
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          useCrudStore.setState((state) => {
-            const dbIds = new Set(res.data.map((d: any) => d.id));
-            const localOnly = state.announcements.filter((a) => !dbIds.has(a.id));
-            return { announcements: res.data.length > 0 ? [...res.data, ...localOnly] : state.announcements };
-          });
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          useCrudStore.setState({ announcements: res.data });
         }
       })
       .catch((err) => console.error('Failed to load announcements from DB:', err));
   }, []);
+
 
   const announcementFields: FieldConfig[] = [
     { name: 'title', label: 'Announcement Title', type: 'text', colSpan: 2 },

@@ -361,13 +361,19 @@ export default function SalesPage() {
             confirmDelete.permanent ? 'permanently delete' : 'soft delete'
           } Invoice ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
-          onConfirm={() => {
+          onConfirm={async () => {
             if (confirmDelete.permanent) {
               permanentDeleteRecord('sales', confirmDelete.id);
+              try {
+                await fetch(`/api/sales?id=${confirmDelete.id}`, { method: 'DELETE' });
+              } catch (err) {
+                console.error('Failed to delete sale from DB:', err);
+              }
             } else {
               softDeleteRecord('sales', confirmDelete.id);
             }
           }}
+
         />
       )}
 

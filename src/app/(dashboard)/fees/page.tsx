@@ -687,15 +687,26 @@ export default function FeesPage() {
           title={confirmDelete.isStructure ? 'Delete Fee Structure' : confirmDelete.permanent ? 'Permanently Purge Receipt' : 'Move Receipt to Trash'}
           message={`Are you sure you want to delete ${confirmDelete.name}?`}
           confirmLabel="Delete Record"
-          onConfirm={() => {
+          onConfirm={async () => {
             if (confirmDelete.isStructure) {
               permanentDeleteRecord('feeStructures', confirmDelete.id);
+              try {
+                await fetch(`/api/fee-structures?id=${confirmDelete.id}`, { method: 'DELETE' });
+              } catch (err) {
+                console.error('Failed to delete fee structure from DB:', err);
+              }
             } else if (confirmDelete.permanent) {
               permanentDeleteRecord('feePayments', confirmDelete.id);
+              try {
+                await fetch(`/api/fees?id=${confirmDelete.id}`, { method: 'DELETE' });
+              } catch (err) {
+                console.error('Failed to delete fee payment from DB:', err);
+              }
             } else {
               softDeleteRecord('feePayments', confirmDelete.id);
             }
           }}
+
         />
       )}
 

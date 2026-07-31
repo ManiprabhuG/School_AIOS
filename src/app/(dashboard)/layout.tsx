@@ -27,11 +27,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          useCrudStore.setState((state) => {
-            const dbIds = new Set(res.data.map((d: any) => d.id));
-            const localOnly = state.students.filter((s) => !dbIds.has(s.id));
-            return { students: [...res.data, ...localOnly] };
-          });
+          useCrudStore.setState({ students: res.data });
         }
       })
       .catch((err) => console.error('Failed to sync students in dashboard layout:', err));
@@ -40,15 +36,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          useCrudStore.setState((state) => {
-            const dbIds = new Set(res.data.map((d: any) => d.id));
-            const localOnly = state.staff.filter((s) => !dbIds.has(s.id));
-            return { staff: [...res.data, ...localOnly] };
-          });
+          useCrudStore.setState({ staff: res.data });
         }
       })
       .catch((err) => console.error('Failed to sync staff in dashboard layout:', err));
   }, []);
+
 
   React.useEffect(() => {
     const checkHydration = () => {
