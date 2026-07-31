@@ -911,7 +911,10 @@ export default function SettingsPage() {
                         return;
                       }
 
+                      resetToDefaultData();
+
                       try {
+
                         const res = await fetch('/api/admin/clear-financial-data', { method: 'POST' });
                         const json = await res.json();
                         if (json.success) {
