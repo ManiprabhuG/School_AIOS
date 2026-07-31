@@ -102,6 +102,9 @@ export interface CrudState {
   adjustAccountBalance: (accountId: string, type: 'CREDIT' | 'DEBIT', amount: number, reason: string, user: string) => void;
   transferFunds: (fromAccountId: string, toAccountId: string, amount: number, description: string, user: string) => boolean;
   setPmConfig: (config: Partial<PaymentMethodConfig>) => void;
+  updateFinancialTransaction: (id: string, updates: Partial<FinancialTransaction>, targetAccountId?: string) => void;
+  deleteFinancialTransaction: (id: string) => void;
+
 
   // Generic Operations
   addRecord: (entity: EntityName, item: any) => void;
@@ -496,7 +499,103 @@ export const useCrudStore = create<CrudState>()(
       },
 
       setPmConfig: (config) => {
-        set((prev) => ({ pmConfig: { ...prev.pmConfig, ...config } }));
+        notifyUserActivity();
+        set((state) => ({
+          pmConfig: { ...state.pmConfig, ...config },
+        }));
+      },
+
+      updateFinancialTransaction: (id, updates, targetAccountId) => {
+        notifyUserActivity();
+        const state = get();
+        const oldTx = state.financials.find((f) => f.id === id);
+        if (!oldTx) return;
+
+        const now = new Date().toISOString().split('T')[0];
+        const accId = targetAccountId || state.financialAccounts[0]?.id || '';
+        const account = state.financialAccounts.find((a) => a.id === accId) || state.financialAccounts[0];
+
+        if (account) {
+          // Revert old transaction balance effect
+          let bal = account.currentBalance;
+          if (oldTx.type === 'Income') {
+            bal -= oldTx.amount;
+          } else if (oldTx.type === 'Expense') {
+            bal += oldTx.amount;
+          }
+
+          // Apply new transaction balance effect
+          const newType = updates.type || oldTx.type;
+          const newAmount = Number(updates.amount !== undefined ? updates.amount : oldTx.amount) || 0;
+          if (newType === 'Income') {
+            bal += newAmount;
+          } else {
+            bal -= newAmount;
+          }
+
+          const atxNumber = `ATX-${oldTx.transactionNo}`;
+          const newCategory = updates.category || oldTx.category;
+          const newPayee = updates.payeeName || oldTx.payeeName || 'General';
+          const newDesc = updates.description || oldTx.description;
+          const newMethod = updates.paymentMode || oldTx.paymentMode;
+
+          const updatedAtxs = state.accountTransactions.map((t) => {
+            if (t.txnNumber === atxNumber || t.referenceNo === oldTx.transactionNo) {
+              return {
+                ...t,
+                transactionType: newType === 'Income' ? ('INCOME' as const) : ('EXPENSE' as const),
+                description: `Voucher (${newCategory} - ${newPayee}): ${newDesc}`,
+                paymentMethod: newMethod,
+                credit: newType === 'Income' ? newAmount : 0,
+                debit: newType === 'Income' ? 0 : newAmount,
+                runningBalance: bal,
+                date: updates.date || oldTx.date,
+              };
+            }
+            return t;
+          });
+
+          set((prev) => ({
+            financialAccounts: prev.financialAccounts.map((a) => (a.id === account.id ? { ...a, currentBalance: bal, updatedAt: now } : a)),
+            accountTransactions: updatedAtxs,
+            financials: prev.financials.map((f) => (f.id === id ? { ...f, ...updates, updatedAt: now } : f)),
+          }));
+        } else {
+          set((prev) => ({
+            financials: prev.financials.map((f) => (f.id === id ? { ...f, ...updates, updatedAt: now } : f)),
+          }));
+        }
+      },
+
+      deleteFinancialTransaction: (id) => {
+        notifyUserActivity();
+        const state = get();
+        const oldTx = state.financials.find((f) => f.id === id);
+        if (!oldTx) return;
+
+        const now = new Date().toISOString().split('T')[0];
+        const account = state.financialAccounts[0];
+
+        if (account) {
+          let bal = account.currentBalance;
+          if (oldTx.type === 'Income') {
+            bal -= oldTx.amount;
+          } else if (oldTx.type === 'Expense') {
+            bal += oldTx.amount;
+          }
+
+          const atxNumber = `ATX-${oldTx.transactionNo}`;
+
+          set((prev) => ({
+            financialAccounts: prev.financialAccounts.map((a) => (a.id === account.id ? { ...a, currentBalance: bal, updatedAt: now } : a)),
+            accountTransactions: prev.accountTransactions.filter((t) => t.txnNumber !== atxNumber && t.referenceNo !== oldTx.transactionNo),
+            financials: prev.financials.filter((f) => f.id !== id),
+          }));
+        } else {
+          set((prev) => ({
+            financials: prev.financials.filter((f) => f.id !== id),
+          }));
+        }
       },
 
       logAudit: (log) => {

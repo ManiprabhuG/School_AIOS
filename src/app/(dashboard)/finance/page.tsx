@@ -43,7 +43,10 @@ export default function FinancePage() {
     auditLogs,
     addRecord,
     updateRecord,
+    updateFinancialTransaction,
+    deleteFinancialTransaction,
     softDeleteRecord,
+
     restoreRecord,
     permanentDeleteRecord,
     bulkDeleteRecords,
@@ -290,17 +293,19 @@ export default function FinancePage() {
 
     if (editingTx) {
       const updates = { ...voucherForm };
-      updateRecord('financials', editingTx.id, updates);
+      updateFinancialTransaction(editingTx.id, updates, targetAccountId);
       try {
         await fetch('/api/finance', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: editingTx.id, ...updates }),
+
         });
       } catch (err) {
         console.error('Failed to update finance in DB:', err);
       }
       setEditingTx(null);
+
     } else {
       const newTx: FinancialTransaction = {
         id: `tx-${Date.now()}`,
@@ -1032,7 +1037,7 @@ export default function FinancePage() {
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
             if (confirmDelete.permanent) {
-              permanentDeleteRecord('financials', confirmDelete.id);
+              deleteFinancialTransaction(confirmDelete.id);
               try {
                 await fetch(`/api/finance?id=${confirmDelete.id}`, { method: 'DELETE' });
               } catch (err) {
@@ -1042,6 +1047,7 @@ export default function FinancePage() {
               softDeleteRecord('financials', confirmDelete.id);
             }
           }}
+
         />
       )}
 

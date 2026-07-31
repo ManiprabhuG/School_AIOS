@@ -133,27 +133,124 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, transactionNo, paymentMode, approvedBy, ...updates } = body;
+    const { id } = body;
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
-    const dbUpdates: any = { ...updates };
-    if (transactionNo) dbUpdates.txnNumber = transactionNo;
-    if (paymentMode) dbUpdates.paymentMethod = paymentMode;
-    if (approvedBy) dbUpdates.handledBy = approvedBy;
-
     if (isDbConnected()) {
-      await db.financialTransaction.update({
-        where: { id },
-        data: dbUpdates,
-      });
-      return NextResponse.json({ success: true });
+      const oldTx = await db.financialTransaction.findUnique({ where: { id } });
+      if (oldTx) {
+        let accountId = body.accountId;
+        if (!accountId) {
+          const defaultAcc = (oldTx.paymentMethod || '').toLowerCase().includes('cash')
+            ? await db.financialAccount.findFirst({ where: { accountType: 'CASH' } })
+            : await db.financialAccount.findFirst({ where: { accountType: 'BANK' } });
+          accountId = defaultAcc?.id;
+        }
+
+        if (accountId) {
+          const account = await db.financialAccount.findUnique({ where: { id: accountId } });
+          if (account) {
+            // Revert old transaction balance effect
+            let balance = account.currentBalance;
+            if (oldTx.type === 'Income') {
+              balance -= oldTx.amount;
+            } else if (oldTx.type === 'Expense') {
+              balance += oldTx.amount;
+            }
+
+            // Apply new transaction balance effect
+            const newType = body.type || oldTx.type;
+            const newAmount = Number(body.amount !== undefined ? body.amount : oldTx.amount) || 0;
+            const newIsIncome = newType === 'Income';
+
+            if (newIsIncome) {
+              balance += newAmount;
+            } else {
+              balance -= newAmount;
+            }
+
+            // Update account balance
+            await db.financialAccount.update({
+              where: { id: accountId },
+              data: { currentBalance: balance },
+            });
+
+            // Update or create corresponding AccountTransaction ledger entry
+            const atxNumber = `ATX-${oldTx.txnNumber}`;
+            const existingAtx = await db.accountTransaction.findFirst({
+              where: { txnNumber: atxNumber },
+            });
+
+            const newCategory = body.category || oldTx.category;
+            const newPayee = body.payeeName || oldTx.payeeName || 'General';
+            const newDesc = body.description || oldTx.description;
+            const newMethod = body.paymentMode || body.paymentMethod || oldTx.paymentMethod;
+            const newRef = body.referenceNo || oldTx.referenceNo || oldTx.txnNumber;
+            const newHandledBy = body.approvedBy || body.handledBy || oldTx.handledBy;
+
+            if (existingAtx) {
+              await db.accountTransaction.update({
+                where: { id: existingAtx.id },
+                data: {
+                  transactionType: newIsIncome ? 'INCOME' : 'EXPENSE',
+                  description: `Voucher (${newCategory} - ${newPayee}): ${newDesc}`,
+                  paymentMethod: newMethod,
+                  credit: newIsIncome ? newAmount : 0,
+                  debit: newIsIncome ? 0 : newAmount,
+                  runningBalance: balance,
+                  referenceNo: newRef,
+                  date: body.date || oldTx.date,
+                },
+              });
+            } else {
+              await db.accountTransaction.create({
+                data: {
+                  txnNumber: atxNumber,
+                  accountId: account.id,
+                  accountName: account.accountName,
+                  date: body.date || oldTx.date,
+                  referenceNo: newRef,
+                  module: 'FINANCE',
+                  transactionType: newIsIncome ? 'INCOME' : 'EXPENSE',
+                  description: `Voucher (${newCategory} - ${newPayee}): ${newDesc}`,
+                  paymentMethod: newMethod,
+                  credit: newIsIncome ? newAmount : 0,
+                  debit: newIsIncome ? 0 : newAmount,
+                  runningBalance: balance,
+                  createdBy: newHandledBy,
+                },
+              });
+            }
+          }
+        }
+
+        const updated = await db.financialTransaction.update({
+          where: { id },
+          data: {
+            txnNumber: body.transactionNo || body.txnNumber || oldTx.txnNumber,
+            type: body.type || oldTx.type,
+            category: body.category || oldTx.category,
+            amount: Number(body.amount !== undefined ? body.amount : oldTx.amount) || 0,
+            date: body.date || oldTx.date,
+            description: body.description || oldTx.description,
+            paymentMethod: body.paymentMode || body.paymentMethod || oldTx.paymentMethod,
+            referenceNo: body.referenceNo || oldTx.referenceNo,
+            handledBy: body.approvedBy || body.handledBy || oldTx.handledBy,
+            payeeName: body.payeeName !== undefined ? body.payeeName : oldTx.payeeName,
+            entityType: body.entityType !== undefined ? body.entityType : oldTx.entityType,
+          },
+        });
+
+        return NextResponse.json({ success: true, data: updated });
+      }
     }
 
     const store = useCrudStore.getState();
-    store.updateRecord('financials', id, updates);
+    store.updateFinancialTransaction(id, body, body.accountId);
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to update financial transaction' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Failed to update financial transaction:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to update financial transaction' }, { status: 500 });
   }
 }
 
@@ -164,16 +261,44 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
     if (isDbConnected()) {
-      await db.financialTransaction.delete({
-        where: { id },
-      });
-      return NextResponse.json({ success: true });
+      const oldTx = await db.financialTransaction.findUnique({ where: { id } });
+      if (oldTx) {
+        const defaultAcc = (oldTx.paymentMethod || '').toLowerCase().includes('cash')
+          ? await db.financialAccount.findFirst({ where: { accountType: 'CASH' } })
+          : await db.financialAccount.findFirst({ where: { accountType: 'BANK' } });
+
+        if (defaultAcc) {
+          let balance = defaultAcc.currentBalance;
+          if (oldTx.type === 'Income') {
+            balance -= oldTx.amount;
+          } else if (oldTx.type === 'Expense') {
+            balance += oldTx.amount;
+          }
+
+          await db.financialAccount.update({
+            where: { id: defaultAcc.id },
+            data: { currentBalance: balance },
+          });
+
+          const atxNumber = `ATX-${oldTx.txnNumber}`;
+          await db.accountTransaction.deleteMany({
+            where: { txnNumber: atxNumber },
+          });
+        }
+
+        await db.financialTransaction.delete({
+          where: { id },
+        });
+        return NextResponse.json({ success: true });
+      }
     }
 
     const store = useCrudStore.getState();
-    store.permanentDeleteRecord('financials', id);
+    store.deleteFinancialTransaction(id);
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to delete financial transaction' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Failed to delete financial transaction:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to delete financial transaction' }, { status: 500 });
   }
 }
+
