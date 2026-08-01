@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { db, isDbConnected } from '@/lib/db';
 import { useCrudStore } from '@/store/crud-store';
 
@@ -289,12 +290,14 @@ export async function DELETE(request: Request) {
         await db.financialTransaction.delete({
           where: { id },
         });
+        revalidatePath('/finance');
         return NextResponse.json({ success: true });
       }
     }
 
     const store = useCrudStore.getState();
     store.deleteFinancialTransaction(id);
+    revalidatePath('/finance');
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Failed to delete financial transaction:', error);

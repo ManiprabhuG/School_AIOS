@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
 import { useCrudStore } from '@/store/crud-store';
 import { useAuthStore } from '@/store/auth-store';

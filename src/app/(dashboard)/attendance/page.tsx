@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { AttendanceRecord } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -11,6 +14,7 @@ import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
 import { CalendarCheck } from 'lucide-react';
 
 export default function AttendancePage() {
+  const router = useRouter();
   const {
     students,
     staff,
@@ -36,7 +40,7 @@ export default function AttendancePage() {
   };
 
   React.useEffect(() => {
-    fetch('/api/attendance')
+    fetch('/api/attendance', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -456,6 +460,7 @@ export default function AttendancePage() {
             setAttendanceRecords((prev) => prev.filter((item) => item.id !== deleteId));
             try {
               await fetch(`/api/attendance?id=${deleteId}`, { method: 'DELETE' });
+              router.refresh();
             } catch (err) {
               console.error('Failed to delete attendance from DB:', err);
             }

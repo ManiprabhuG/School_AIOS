@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { FeePayment, FeeStructure, ClassName } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -15,6 +18,7 @@ import { ReceiptData } from '@/components/print/ReceiptTemplate';
 import { CreditCard, DollarSign, Receipt, Plus, FileText, CheckCircle2 } from 'lucide-react';
 
 export default function FeesPage() {
+  const router = useRouter();
   const {
     feePayments,
     feeStructures,
@@ -45,7 +49,7 @@ export default function FeesPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean; isStructure?: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/fees')
+    fetch('/api/fees', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -54,7 +58,7 @@ export default function FeesPage() {
       })
       .catch((err) => console.error('Failed to load fees from DB:', err));
 
-    fetch('/api/fee-structures')
+    fetch('/api/fee-structures', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -692,6 +696,7 @@ export default function FeesPage() {
               permanentDeleteRecord('feeStructures', confirmDelete.id);
               try {
                 await fetch(`/api/fee-structures?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete fee structure from DB:', err);
               }
@@ -699,6 +704,7 @@ export default function FeesPage() {
               permanentDeleteRecord('feePayments', confirmDelete.id);
               try {
                 await fetch(`/api/fees?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete fee payment from DB:', err);
               }

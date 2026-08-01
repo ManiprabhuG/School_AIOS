@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { useAuthStore } from '@/store/auth-store';
 import { Staff, UserRole, User } from '@/types';
@@ -13,6 +16,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Users, Phone, Mail, Award, Briefcase, DollarSign, Calendar } from 'lucide-react';
 
 export default function StaffManagementPage() {
+  const router = useRouter();
   const {
     staff,
     auditLogs,
@@ -36,7 +40,7 @@ export default function StaffManagementPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/staff')
+    fetch('/api/staff', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -328,6 +332,7 @@ export default function StaffManagementPage() {
               permanentDeleteRecord('staff', confirmDelete.id);
               try {
                 await fetch(`/api/staff?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete staff from database:', err);
               }

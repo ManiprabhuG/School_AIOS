@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [theme]);
 
   React.useEffect(() => {
-    fetch('/api/students')
+    fetch('/api/students', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       })
       .catch((err) => console.error('Failed to sync students in dashboard layout:', err));
 
-    fetch('/api/staff')
+    fetch('/api/staff', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {

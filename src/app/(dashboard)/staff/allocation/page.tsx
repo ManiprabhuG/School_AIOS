@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import { useCrudStore } from '@/store/crud-store';
 import { UserCheck, Check, Search } from 'lucide-react';
@@ -59,7 +61,7 @@ export default function StaffAllocationPage() {
 
   // Live database sync on mount
   useEffect(() => {
-    fetch('/api/buses')
+    fetch('/api/buses', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data)) {
@@ -68,7 +70,7 @@ export default function StaffAllocationPage() {
       })
       .catch((err) => console.error('Failed to fetch buses live:', err));
 
-    fetch('/api/staff')
+    fetch('/api/staff', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data)) {

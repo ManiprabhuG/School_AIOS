@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { SystemNotification } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -11,6 +14,7 @@ import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
 import { Bell, Info, AlertTriangle, CheckCircle, AlertOctagon, Check, Send } from 'lucide-react';
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const {
     notifications,
     auditLogs,
@@ -30,7 +34,7 @@ export default function NotificationsPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/notifications')
+    fetch('/api/notifications', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -254,9 +258,15 @@ export default function NotificationsPage() {
             confirmDelete.permanent ? 'permanently delete' : 'soft delete'
           } notification ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
-          onConfirm={() => {
+          onConfirm={async () => {
             if (confirmDelete.permanent) {
               permanentDeleteRecord('notifications', confirmDelete.id);
+              try {
+                await fetch(`/api/notifications?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
+              } catch (err) {
+                console.error('Failed to delete notification from DB:', err);
+              }
             } else {
               softDeleteRecord('notifications', confirmDelete.id);
             }

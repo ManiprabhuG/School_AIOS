@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { Exam, ExamMark, ClassName } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -12,6 +15,7 @@ import { exportToPDF } from '@/lib/export-utils';
 import { BookOpen, Award, GraduationCap, FileCheck, Plus, Eye, FileText } from 'lucide-react';
 
 export default function ExaminationsPage() {
+  const router = useRouter();
   const {
     exams,
     examMarks,
@@ -38,7 +42,7 @@ export default function ExaminationsPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; target: 'exams' | 'examMarks'; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/exams')
+    fetch('/api/exams', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -435,6 +439,7 @@ export default function ExaminationsPage() {
               permanentDeleteRecord(confirmDelete.target, confirmDelete.id);
               try {
                 await fetch(`/api/exams?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete exam from DB:', err);
               }

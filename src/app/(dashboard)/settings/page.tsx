@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import { useUIStore, ThemeMode, CompanyProfile } from '@/store/ui-store';
 import { useCrudStore } from '@/store/crud-store';
@@ -106,7 +108,7 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    fetch('/api/settings')
+    fetch('/api/settings', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && res.data) {
@@ -116,7 +118,7 @@ export default function SettingsPage() {
       })
       .catch((err) => console.error('Failed to load cloud database settings:', err));
 
-    fetch('/api/financial-accounts')
+    fetch('/api/financial-accounts', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data)) {

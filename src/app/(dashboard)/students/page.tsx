@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { Student, ClassName, Section } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -12,6 +15,7 @@ import { formatCurrency } from '@/lib/utils';
 import { GraduationCap, Phone, Mail, MapPin, Bus, Eye } from 'lucide-react';
 
 export default function StudentManagementPage() {
+  const router = useRouter();
   const {
     students,
     auditLogs,
@@ -33,7 +37,7 @@ export default function StudentManagementPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/students')
+    fetch('/api/students', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -351,6 +355,7 @@ export default function StudentManagementPage() {
               permanentDeleteRecord('students', confirmDelete.id);
               try {
                 await fetch(`/api/students?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete student from database:', err);
               }

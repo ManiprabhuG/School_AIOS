@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { db, isDbConnected } from '@/lib/db';
 import { useCrudStore } from '@/store/crud-store';
 
@@ -108,11 +109,13 @@ export async function DELETE(request: Request) {
       await db.inventoryItem.delete({
         where: { id },
       });
+      revalidatePath('/inventory');
       return NextResponse.json({ success: true });
     }
 
     const store = useCrudStore.getState();
     store.permanentDeleteRecord('inventory', id);
+    revalidatePath('/inventory');
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Failed to delete inventory item' }, { status: 500 });

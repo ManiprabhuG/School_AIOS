@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { InventoryItem } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -12,6 +15,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Layers, Package, AlertTriangle, PlusCircle, MinusCircle, Warehouse } from 'lucide-react';
 
 export default function InventoryPage() {
+  const router = useRouter();
   const {
     inventory,
     suppliers,
@@ -34,7 +38,7 @@ export default function InventoryPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/inventory')
+    fetch('/api/inventory', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -329,6 +333,7 @@ export default function InventoryPage() {
               permanentDeleteRecord('inventory', confirmDelete.id);
               try {
                 await fetch(`/api/inventory?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete inventory from DB:', err);
               }

@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { Announcement } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -11,6 +14,7 @@ import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
 import { Megaphone, AlertCircle, Calendar, UserCheck } from 'lucide-react';
 
 export default function AnnouncementsPage() {
+  const router = useRouter();
   const {
     announcements,
     auditLogs,
@@ -32,7 +36,7 @@ export default function AnnouncementsPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/announcements')
+    fetch('/api/announcements', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -271,6 +275,7 @@ export default function AnnouncementsPage() {
               permanentDeleteRecord('announcements', confirmDelete.id);
               try {
                 await fetch(`/api/announcements?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete announcement from DB:', err);
               }

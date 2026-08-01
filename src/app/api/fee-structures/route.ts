@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { db, isDbConnected } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -49,5 +50,27 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Failed to save fee structure:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Failed to save fee structure' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
+
+    if (isDbConnected()) {
+      await db.feeStructure.delete({
+        where: { id },
+      });
+      revalidatePath('/fees');
+      return NextResponse.json({ success: true });
+    }
+
+    revalidatePath('/fees');
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Failed to delete fee structure:', error);
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to delete fee structure' }, { status: 500 });
   }
 }

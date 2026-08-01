@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { SalesItem } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -14,6 +17,7 @@ import { ReceiptData } from '@/components/print/ReceiptTemplate';
 import { ShoppingCart, Receipt, User, Tag, CreditCard, FileText } from 'lucide-react';
 
 export default function SalesPage() {
+  const router = useRouter();
   const {
     sales,
     financialAccounts,
@@ -38,7 +42,7 @@ export default function SalesPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/sales')
+    fetch('/api/sales', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -366,6 +370,7 @@ export default function SalesPage() {
               permanentDeleteRecord('sales', confirmDelete.id);
               try {
                 await fetch(`/api/sales?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete sale from DB:', err);
               }

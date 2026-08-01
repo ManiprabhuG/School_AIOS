@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { Supplier } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -12,6 +15,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Truck, Phone, Mail, MapPin, Building, CreditCard } from 'lucide-react';
 
 export default function SuppliersPage() {
+  const router = useRouter();
   const {
     suppliers,
     auditLogs,
@@ -33,7 +37,7 @@ export default function SuppliersPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/suppliers')
+    fetch('/api/suppliers', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -279,6 +283,7 @@ export default function SuppliersPage() {
               permanentDeleteRecord('suppliers', confirmDelete.id);
               try {
                 await fetch(`/api/suppliers?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete supplier from DB:', err);
               }

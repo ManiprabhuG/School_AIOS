@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { BusRoute } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -12,6 +15,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Bus, Phone, Users, ShieldAlert, Wrench } from 'lucide-react';
 
 export default function BusManagementPage() {
+  const router = useRouter();
   const {
     buses,
     auditLogs,
@@ -33,7 +37,7 @@ export default function BusManagementPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/buses')
+    fetch('/api/buses', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -267,6 +271,7 @@ export default function BusManagementPage() {
               permanentDeleteRecord('buses', confirmDelete.id);
               try {
                 await fetch(`/api/buses?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete bus route from DB:', err);
               }

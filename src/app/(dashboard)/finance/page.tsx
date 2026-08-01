@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCrudStore } from '@/store/crud-store';
 import { FinancialTransaction, AccountTransaction, FinancialAccount } from '@/types';
 import { DataTable, Column } from '@/components/crud/DataTable';
@@ -33,6 +36,7 @@ import {
 } from 'lucide-react';
 
 export default function FinancePage() {
+  const router = useRouter();
   const {
     financials,
     financialAccounts,
@@ -128,7 +132,7 @@ export default function FinancePage() {
   const [transferRemark, setTransferRemark] = useState<string>('');
 
   const refreshFinanceData = () => {
-    fetch('/api/finance')
+    fetch('/api/finance', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -137,7 +141,7 @@ export default function FinancePage() {
       })
       .catch((err) => console.error('Failed to load finance from DB:', err));
 
-    fetch('/api/financial-accounts')
+    fetch('/api/financial-accounts', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -145,7 +149,7 @@ export default function FinancePage() {
         }
       });
 
-    fetch('/api/account-transactions')
+    fetch('/api/account-transactions', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -445,6 +449,7 @@ export default function FinancePage() {
 
     try {
       await fetch(`/api/account-transactions?id=${tx.id}`, { method: 'DELETE' });
+      router.refresh();
     } catch (err) {
       console.error('Failed to delete ledger entry from DB:', err);
     }
@@ -1260,6 +1265,7 @@ export default function FinancePage() {
               deleteFinancialTransaction(confirmDelete.id);
               try {
                 await fetch(`/api/finance?id=${confirmDelete.id}`, { method: 'DELETE' });
+                router.refresh();
               } catch (err) {
                 console.error('Failed to delete finance transaction from DB:', err);
               }
