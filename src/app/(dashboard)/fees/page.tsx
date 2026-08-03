@@ -559,7 +559,15 @@ export default function FeesPage() {
           onSoftDeleteClick={(p) => setConfirmDelete({ id: p.id, name: p.receiptNo, permanent: false })}
           onRestoreClick={(p) => restoreRecord('feePayments', p.id)}
           onPermanentDeleteClick={(p) => setConfirmDelete({ id: p.id, name: p.receiptNo, permanent: true })}
-          onBulkDelete={(ids, soft) => bulkDeleteRecords('feePayments', ids, soft)}
+          onBulkDelete={async (ids, soft) => {
+            bulkDeleteRecords('feePayments', ids, soft);
+            try {
+              await Promise.all(ids.map((id) => fetch(`/api/fees?id=${id}`, { method: 'DELETE' })));
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to bulk delete fee payments in DB:', err);
+            }
+          }}
           onBulkStatusUpdate={(ids, field, val) => bulkUpdateStatus('feePayments', ids, field, val)}
           onImportClick={() => setIsImportOpen(true)}
           onAuditLogsClick={() => setIsAuditOpen(true)}

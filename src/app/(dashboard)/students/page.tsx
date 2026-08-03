@@ -305,7 +305,15 @@ export default function StudentManagementPage() {
         onSoftDeleteClick={(s) => setConfirmDelete({ id: s.id, name: s.name, permanent: false })}
         onRestoreClick={(s) => restoreRecord('students', s.id)}
         onPermanentDeleteClick={(s) => setConfirmDelete({ id: s.id, name: s.name, permanent: true })}
-        onBulkDelete={(ids, soft) => bulkDeleteRecords('students', ids, soft)}
+        onBulkDelete={async (ids, soft) => {
+          bulkDeleteRecords('students', ids, soft);
+          try {
+            await Promise.all(ids.map((id) => fetch(`/api/students?id=${id}`, { method: 'DELETE' })));
+            router.refresh();
+          } catch (err) {
+            console.error('Failed to bulk delete students in DB:', err);
+          }
+        }}
         onBulkStatusUpdate={(ids, field, val) => bulkUpdateStatus('students', ids, field, val)}
         onImportClick={() => setIsImportOpen(true)}
         onAuditLogsClick={() => setIsAuditOpen(true)}

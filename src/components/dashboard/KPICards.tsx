@@ -48,8 +48,8 @@ export default function KPICards() {
     accountTransactions,
   } = useCrudStore();
 
-  const activeStudents = students.filter((s: any) => !s.isDeleted);
-  const activeStaff = staff.filter((s: any) => !s.isDeleted);
+  const activeStudents = students.filter((s: any) => !s.isDeleted && s.status !== 'INACTIVE' && s.status !== 'Transferred');
+  const activeStaff = staff.filter((s: any) => !s.isDeleted && s.status !== 'INACTIVE');
   const activeFeePayments = feePayments.filter((p: any) => !p.isDeleted);
   const activeExams = exams.filter((e: any) => !e.isDeleted);
   const activeBuses = buses.filter((b: any) => !b.isDeleted);
@@ -68,7 +68,14 @@ export default function KPICards() {
   const nonTeachingStaffCount = totalStaffCount - teachingStaffCount;
 
   const totalFeeCollected = activeFeePayments.reduce((sum, p: any) => sum + (p.amount || p.amountPaid || 0), 0);
-  const totalPendingFees = activeStudents.reduce((sum, s) => sum + (s.dueFees || 0), 0);
+  const totalPendingFees = activeStudents.reduce((sum, s: any) => {
+    if (s.dueFees !== undefined && s.dueFees !== null) {
+      return sum + Number(s.dueFees || 0);
+    }
+    const total = Number(s.totalFees) || 0;
+    const paid = Number(s.paidFees) || 0;
+    return sum + Math.max(0, total - paid);
+  }, 0);
   const totalInventoryCount = activeInventory.reduce((sum, i: any) => sum + (i.quantityInStock || i.quantity || 0), 0);
   const lowStockCount = activeInventory.filter((i: any) => (i.quantityInStock || i.quantity || 0) < (i.minReorderLevel || i.minStock || 10)).length;
 
