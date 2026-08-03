@@ -39,7 +39,7 @@ export default function AnnouncementsPage() {
     fetch('/api/announcements', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ announcements: res.data });
         }
       })
@@ -271,17 +271,17 @@ export default function AnnouncementsPage() {
           } ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
-            if (confirmDelete.permanent) {
-              permanentDeleteRecord('announcements', confirmDelete.id);
-              try {
-                await fetch(`/api/announcements?id=${confirmDelete.id}`, { method: 'DELETE' });
-                router.refresh();
-              } catch (err) {
-                console.error('Failed to delete announcement from DB:', err);
-              }
-            } else {
-              softDeleteRecord('announcements', confirmDelete.id);
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
+            permanentDeleteRecord('announcements', targetId);
+            softDeleteRecord('announcements', targetId);
+            try {
+              await fetch(`/api/announcements?id=${targetId}`, { method: 'DELETE' });
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to delete announcement from DB:', err);
             }
+            setConfirmDelete(null);
           }}
         />
       )}

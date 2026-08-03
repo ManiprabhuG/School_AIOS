@@ -40,7 +40,7 @@ export default function SuppliersPage() {
     fetch('/api/suppliers', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ suppliers: res.data });
         }
       })
@@ -279,17 +279,17 @@ export default function SuppliersPage() {
           } ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
-            if (confirmDelete.permanent) {
-              permanentDeleteRecord('suppliers', confirmDelete.id);
-              try {
-                await fetch(`/api/suppliers?id=${confirmDelete.id}`, { method: 'DELETE' });
-                router.refresh();
-              } catch (err) {
-                console.error('Failed to delete supplier from DB:', err);
-              }
-            } else {
-              softDeleteRecord('suppliers', confirmDelete.id);
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
+            permanentDeleteRecord('suppliers', targetId);
+            softDeleteRecord('suppliers', targetId);
+            try {
+              await fetch(`/api/suppliers?id=${targetId}`, { method: 'DELETE' });
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to delete supplier from DB:', err);
             }
+            setConfirmDelete(null);
           }}
         />
       )}

@@ -45,7 +45,7 @@ export default function SalesPage() {
     fetch('/api/sales', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ sales: res.data });
         }
       })
@@ -366,17 +366,17 @@ export default function SalesPage() {
           } Invoice ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
-            if (confirmDelete.permanent) {
-              permanentDeleteRecord('sales', confirmDelete.id);
-              try {
-                await fetch(`/api/sales?id=${confirmDelete.id}`, { method: 'DELETE' });
-                router.refresh();
-              } catch (err) {
-                console.error('Failed to delete sale from DB:', err);
-              }
-            } else {
-              softDeleteRecord('sales', confirmDelete.id);
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
+            permanentDeleteRecord('sales', targetId);
+            softDeleteRecord('sales', targetId);
+            try {
+              await fetch(`/api/sales?id=${targetId}`, { method: 'DELETE' });
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to delete sale from DB:', err);
             }
+            setConfirmDelete(null);
           }}
 
         />

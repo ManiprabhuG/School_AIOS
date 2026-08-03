@@ -135,7 +135,7 @@ export default function FinancePage() {
     fetch('/api/finance', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ financials: res.data });
         }
       })
@@ -144,18 +144,20 @@ export default function FinancePage() {
     fetch('/api/financial-accounts', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ financialAccounts: res.data });
         }
-      });
+      })
+      .catch((err) => console.error('Failed to load financial accounts from DB:', err));
 
     fetch('/api/account-transactions', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ accountTransactions: res.data });
         }
-      });
+      })
+      .catch((err) => console.error('Failed to load account transactions from DB:', err));
   };
 
   useEffect(() => {
@@ -1261,17 +1263,18 @@ export default function FinancePage() {
           } transaction ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
-            if (confirmDelete.permanent) {
-              deleteFinancialTransaction(confirmDelete.id);
-              try {
-                await fetch(`/api/finance?id=${confirmDelete.id}`, { method: 'DELETE' });
-                router.refresh();
-              } catch (err) {
-                console.error('Failed to delete finance transaction from DB:', err);
-              }
-            } else {
-              softDeleteRecord('financials', confirmDelete.id);
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
+            deleteFinancialTransaction(targetId);
+            permanentDeleteRecord('financials', targetId);
+            softDeleteRecord('financials', targetId);
+            try {
+              await fetch(`/api/finance?id=${targetId}`, { method: 'DELETE' });
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to delete finance transaction from DB:', err);
             }
+            setConfirmDelete(null);
           }}
         />
       )}

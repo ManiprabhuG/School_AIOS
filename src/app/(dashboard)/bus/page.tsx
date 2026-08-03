@@ -40,7 +40,7 @@ export default function BusManagementPage() {
     fetch('/api/buses', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ buses: res.data });
         }
       })
@@ -267,17 +267,17 @@ export default function BusManagementPage() {
           } ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
-            if (confirmDelete.permanent) {
-              permanentDeleteRecord('buses', confirmDelete.id);
-              try {
-                await fetch(`/api/buses?id=${confirmDelete.id}`, { method: 'DELETE' });
-                router.refresh();
-              } catch (err) {
-                console.error('Failed to delete bus route from DB:', err);
-              }
-            } else {
-              softDeleteRecord('buses', confirmDelete.id);
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
+            permanentDeleteRecord('buses', targetId);
+            softDeleteRecord('buses', targetId);
+            try {
+              await fetch(`/api/buses?id=${targetId}`, { method: 'DELETE' });
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to delete bus route from DB:', err);
             }
+            setConfirmDelete(null);
           }}
         />
       )}

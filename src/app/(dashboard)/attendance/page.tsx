@@ -43,7 +43,7 @@ export default function AttendancePage() {
     fetch('/api/attendance', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           const normalized = res.data.map((rec: any) => {
             const parsed = parseClassAndSection(rec.className, rec.section);
             return {

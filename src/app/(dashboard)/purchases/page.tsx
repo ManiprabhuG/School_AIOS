@@ -44,7 +44,7 @@ export default function PurchasesPage() {
     fetch('/api/purchases', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ purchases: res.data });
         }
       })
@@ -292,17 +292,17 @@ export default function PurchasesPage() {
           } ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
-            if (confirmDelete.permanent) {
-              permanentDeleteRecord('purchases', confirmDelete.id);
-              try {
-                await fetch(`/api/purchases?id=${confirmDelete.id}`, { method: 'DELETE' });
-                router.refresh();
-              } catch (err) {
-                console.error('Failed to delete PO from DB:', err);
-              }
-            } else {
-              softDeleteRecord('purchases', confirmDelete.id);
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
+            permanentDeleteRecord('purchases', targetId);
+            softDeleteRecord('purchases', targetId);
+            try {
+              await fetch(`/api/purchases?id=${targetId}`, { method: 'DELETE' });
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to delete PO from DB:', err);
             }
+            setConfirmDelete(null);
           }}
         />
       )}

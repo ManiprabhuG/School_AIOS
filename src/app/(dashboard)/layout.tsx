@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetch('/api/students', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ students: res.data });
         }
       })
@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetch('/api/staff', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ staff: res.data });
         }
       })

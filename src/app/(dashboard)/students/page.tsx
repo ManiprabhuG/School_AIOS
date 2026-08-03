@@ -40,7 +40,7 @@ export default function StudentManagementPage() {
     fetch('/api/students', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ students: res.data });
         }
       })
@@ -351,17 +351,17 @@ export default function StudentManagementPage() {
           } ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
-            if (confirmDelete.permanent) {
-              permanentDeleteRecord('students', confirmDelete.id);
-              try {
-                await fetch(`/api/students?id=${confirmDelete.id}`, { method: 'DELETE' });
-                router.refresh();
-              } catch (err) {
-                console.error('Failed to delete student from database:', err);
-              }
-            } else {
-              softDeleteRecord('students', confirmDelete.id);
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
+            permanentDeleteRecord('students', targetId);
+            softDeleteRecord('students', targetId);
+            try {
+              await fetch(`/api/students?id=${targetId}`, { method: 'DELETE' });
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to delete student from database:', err);
             }
+            setConfirmDelete(null);
           }}
         />
       )}

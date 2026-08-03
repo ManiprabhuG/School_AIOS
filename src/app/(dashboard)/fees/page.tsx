@@ -52,7 +52,7 @@ export default function FeesPage() {
     fetch('/api/fees', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ feePayments: res.data });
         }
       })
@@ -61,7 +61,7 @@ export default function FeesPage() {
     fetch('/api/fee-structures', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ feeStructures: res.data });
         }
       })
@@ -692,25 +692,27 @@ export default function FeesPage() {
           message={`Are you sure you want to delete ${confirmDelete.name}?`}
           confirmLabel="Delete Record"
           onConfirm={async () => {
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
             if (confirmDelete.isStructure) {
-              permanentDeleteRecord('feeStructures', confirmDelete.id);
+              permanentDeleteRecord('feeStructures', targetId);
               try {
-                await fetch(`/api/fee-structures?id=${confirmDelete.id}`, { method: 'DELETE' });
+                await fetch(`/api/fee-structures?id=${targetId}`, { method: 'DELETE' });
                 router.refresh();
               } catch (err) {
                 console.error('Failed to delete fee structure from DB:', err);
               }
-            } else if (confirmDelete.permanent) {
-              permanentDeleteRecord('feePayments', confirmDelete.id);
+            } else {
+              permanentDeleteRecord('feePayments', targetId);
+              softDeleteRecord('feePayments', targetId);
               try {
-                await fetch(`/api/fees?id=${confirmDelete.id}`, { method: 'DELETE' });
+                await fetch(`/api/fees?id=${targetId}`, { method: 'DELETE' });
                 router.refresh();
               } catch (err) {
                 console.error('Failed to delete fee payment from DB:', err);
               }
-            } else {
-              softDeleteRecord('feePayments', confirmDelete.id);
             }
+            setConfirmDelete(null);
           }}
 
         />

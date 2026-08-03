@@ -41,7 +41,7 @@ export default function InventoryPage() {
     fetch('/api/inventory', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.success && Array.isArray(res.data)) {
           useCrudStore.setState({ inventory: res.data });
         }
       })
@@ -329,17 +329,20 @@ export default function InventoryPage() {
           } ${confirmDelete.name}?`}
           confirmLabel={confirmDelete.permanent ? 'Permanent Delete' : 'Move to Trash'}
           onConfirm={async () => {
+            if (!confirmDelete) return;
+            const targetId = confirmDelete.id;
             if (confirmDelete.permanent) {
-              permanentDeleteRecord('inventory', confirmDelete.id);
-              try {
-                await fetch(`/api/inventory?id=${confirmDelete.id}`, { method: 'DELETE' });
-                router.refresh();
-              } catch (err) {
-                console.error('Failed to delete inventory from DB:', err);
-              }
+              permanentDeleteRecord('inventory', targetId);
             } else {
-              softDeleteRecord('inventory', confirmDelete.id);
+              softDeleteRecord('inventory', targetId);
             }
+            try {
+              await fetch(`/api/inventory?id=${targetId}`, { method: 'DELETE' });
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to delete inventory item from DB:', err);
+            }
+            setConfirmDelete(null);
           }}
         />
       )}
