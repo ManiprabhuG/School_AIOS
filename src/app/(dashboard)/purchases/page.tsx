@@ -12,7 +12,9 @@ import { ImportModal } from '@/components/crud/ImportModal';
 import { AuditLogViewer } from '@/components/crud/AuditLogViewer';
 import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
 import { formatCurrency } from '@/lib/utils';
-import { ShoppingBag, Truck, Calendar, CheckCircle2, PackageCheck } from 'lucide-react';
+import { ShoppingBag, Truck, Calendar, CheckCircle2, PackageCheck, FileText } from 'lucide-react';
+import PrintModal from '@/components/print/PrintModal';
+import { ReceiptData } from '@/components/print/ReceiptTemplate';
 
 export default function PurchasesPage() {
   const router = useRouter();
@@ -36,6 +38,7 @@ export default function PurchasesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
   const [viewingPO, setViewingPO] = useState<PurchaseOrder | null>(null);
+  const [printReceiptData, setPrintReceiptData] = useState<ReceiptData | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
@@ -139,6 +142,39 @@ export default function PurchasesPage() {
         </span>
       ),
     },
+    {
+      key: 'actions',
+      header: 'Print',
+      render: (po) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setPrintReceiptData({
+              receiptNumber: po.poNumber || `PO-${po.id}`,
+              title: 'PURCHASE ORDER INVOICE',
+              supplierName: po.supplierName,
+              paymentDate: po.orderDate || new Date().toISOString().split('T')[0],
+              paymentMethod: 'Bank Transfer',
+              cashierName: 'Procurement Officer',
+              items: [
+                {
+                  name: `Purchase Order - ${po.itemsCount} Items`,
+                  qty: po.itemsCount,
+                  unitPrice: po.totalAmount / po.itemsCount,
+                  amount: po.totalAmount,
+                },
+              ],
+              subtotal: po.totalAmount,
+              totalAmount: po.totalAmount,
+              notes: `PO Status: ${po.status}. Expected Delivery: ${po.deliveryDate || po.orderDate}`,
+            });
+          }}
+          className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm active:scale-95 animate-in fade-in"
+        >
+          <FileText className="w-3 h-3" /> Print PO
+        </button>
+      ),
+    },
   ];
 
   const handleSavePurchase = async (data: Record<string, any>, saveAndNew?: boolean) => {
@@ -192,6 +228,7 @@ export default function PurchasesPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id: newPO.id,
+            accountId: data.accountId,
             poNumber: newPO.poNumber,
             supplierName: newPO.supplierName,
             supplierId: newPO.supplierId,
@@ -206,6 +243,27 @@ export default function PurchasesPage() {
       } catch (err) {
         console.error('Failed to save PO to DB:', err);
       }
+
+      // Automatically show printing preview
+      setPrintReceiptData({
+        receiptNumber: newPO.poNumber || `PO-${newPO.id}`,
+        title: 'PURCHASE ORDER INVOICE',
+        supplierName: newPO.supplierName,
+        paymentDate: newPO.orderDate || new Date().toISOString().split('T')[0],
+        paymentMethod: 'Bank Transfer',
+        cashierName: 'Procurement Officer',
+        items: [
+          {
+            name: `Purchase Order - ${newPO.itemsCount} Items`,
+            qty: newPO.itemsCount,
+            unitPrice: newPO.totalAmount / newPO.itemsCount,
+            amount: newPO.totalAmount,
+          },
+        ],
+        subtotal: newPO.totalAmount,
+        totalAmount: newPO.totalAmount,
+        notes: `PO Status: ${newPO.status}. Expected Delivery: ${newPO.deliveryDate || newPO.orderDate}`,
+      });
 
       if (!saveAndNew) setIsAddModalOpen(false);
     }
@@ -348,25 +406,65 @@ export default function PurchasesPage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center pb-2">
                 <span className="text-slate-400">Total Purchase Amount:</span>
                 <strong className="text-lg font-black text-blue-600">{formatCurrency(viewingPO.totalAmount)}</strong>
               </div>
 
-              {viewingPO.status !== 'Goods Received' && (
+              <div className="space-y-2">
+                {viewingPO.status !== 'Goods Received' && (
+                  <button
+                    onClick={() => {
+                      updateRecord('purchases', viewingPO.id, { status: 'Goods Received' });
+                      setViewingPO(null);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center gap-1.5 shadow-md hover:bg-emerald-500 active:scale-98 transition-transform"
+                  >
+                    <PackageCheck className="w-4 h-4" /> Mark Goods Received
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
-                    updateRecord('purchases', viewingPO.id, { status: 'Goods Received' });
+                    const po = viewingPO;
                     setViewingPO(null);
+                    setPrintReceiptData({
+                      receiptNumber: po.poNumber || `PO-${po.id}`,
+                      title: 'PURCHASE ORDER INVOICE',
+                      supplierName: po.supplierName,
+                      paymentDate: po.orderDate || new Date().toISOString().split('T')[0],
+                      paymentMethod: 'Bank Transfer',
+                      cashierName: 'Procurement Officer',
+                      items: [
+                        {
+                          name: `Purchase Order - ${po.itemsCount} Items`,
+                          qty: po.itemsCount,
+                          unitPrice: po.totalAmount / po.itemsCount,
+                          amount: po.totalAmount,
+                        },
+                      ],
+                      subtotal: po.totalAmount,
+                      totalAmount: po.totalAmount,
+                      notes: `PO Status: ${po.status}. Expected Delivery: ${po.deliveryDate || po.orderDate}`,
+                    });
                   }}
-                  className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center gap-1.5 shadow-md hover:bg-emerald-500"
+                  className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center gap-1.5 shadow-md hover:bg-blue-500 active:scale-98 transition-transform"
                 >
-                  <PackageCheck className="w-4 h-4" /> Mark Goods Received
+                  <FileText className="w-4 h-4" /> Print / PDF Invoice Preview
                 </button>
-              )}
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {printReceiptData && (
+        <PrintModal
+          isOpen={!!printReceiptData}
+          onClose={() => setPrintReceiptData(null)}
+          title={`Print Purchase Order - ${printReceiptData.receiptNumber}`}
+          receiptData={printReceiptData}
+        />
       )}
     </div>
   );

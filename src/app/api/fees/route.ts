@@ -110,8 +110,8 @@ export async function POST(request: Request) {
       let accountId = body.accountId;
       if (!accountId) {
         const defaultAcc = dataObj.paymentMode.toLowerCase().includes('cash')
-          ? await db.financialAccount.findFirst({ where: { accountType: 'CASH' } })
-          : await db.financialAccount.findFirst({ where: { accountType: 'BANK' } });
+          ? await db.financialAccount.findFirst({ where: { OR: [{ accountType: 'CASH' }, { accountType: { contains: 'Cash' } }] } })
+          : await db.financialAccount.findFirst({ where: { OR: [{ accountType: 'BANK' }, { accountType: { contains: 'Bank' } }] } });
         accountId = defaultAcc?.id;
       }
 

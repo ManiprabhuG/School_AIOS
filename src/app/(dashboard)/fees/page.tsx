@@ -394,6 +394,27 @@ export default function FeesPage() {
         console.error('Failed to save fee payment to DB:', err);
       }
 
+      // Automatically show printing preview
+      setPrintReceiptData({
+        receiptNumber: newPay.receiptNo,
+        title: 'OFFICIAL SCHOOL FEE RECEIPT',
+        studentName: newPay.studentName,
+        admissionNo: selectedStd?.admissionNo || newPay.studentId || 'ADM-2026-101',
+        className: newPay.className,
+        section: selectedStd?.section || 'A',
+        parentName: selectedStd?.fatherName || 'Parent / Guardian',
+        paymentDate: newPay.paymentDate,
+        paymentMethod: newPay.paymentMode,
+        cashierName: newPay.collectedBy,
+        items: [
+          { name: `${newPay.feeCategory} Fee Payment`, amount: newPay.amount },
+        ],
+        subtotal: newPay.totalAmount,
+        totalAmount: newPay.amount,
+        remainingBalance: newPay.dueAmount,
+        notes: newPay.dueAmount > 0 ? `Please note: a balance of ₹${newPay.dueAmount.toLocaleString('en-IN')} is outstanding.` : 'All dues cleared. Thank you!',
+      });
+
       if (!saveAndNew) setIsAddModalOpen(false);
     }
   };

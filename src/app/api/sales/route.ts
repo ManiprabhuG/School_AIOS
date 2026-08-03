@@ -50,6 +50,44 @@ export async function POST(request: Request) {
         data: dataObj as any,
       });
 
+      // Record Account Ledger transaction if account is specified or fallback
+      let accountId = body.accountId;
+      if (!accountId) {
+        const defaultAcc = dataObj.paymentMethod.toLowerCase().includes('cash')
+          ? await db.financialAccount.findFirst({ where: { OR: [{ accountType: 'CASH' }, { accountType: { contains: 'Cash' } }] } })
+          : await db.financialAccount.findFirst({ where: { OR: [{ accountType: 'BANK' }, { accountType: { contains: 'Bank' } }] } });
+        accountId = defaultAcc?.id;
+      }
+
+      if (accountId) {
+        const account = await db.financialAccount.findUnique({ where: { id: accountId } });
+        if (account) {
+          const newBalance = account.currentBalance + dataObj.totalAmount;
+          await db.financialAccount.update({
+            where: { id: accountId },
+            data: { currentBalance: newBalance },
+          });
+
+          await db.accountTransaction.create({
+            data: {
+              txnNumber: `TXN-SALE-${created.invoiceNo}`,
+              accountId: account.id,
+              accountName: account.accountName,
+              date: dataObj.date,
+              referenceNo: created.invoiceNo,
+              module: 'SALES',
+              transactionType: 'INCOME',
+              description: `Uniform/Store Sale: ${created.itemName} (${created.customerName})`,
+              paymentMethod: dataObj.paymentMethod,
+              credit: dataObj.totalAmount,
+              debit: 0,
+              runningBalance: newBalance,
+              createdBy: 'Sales Desk',
+            },
+          });
+        }
+      }
+
       const mapped = {
         ...created,
         discount: body.discount || 0,

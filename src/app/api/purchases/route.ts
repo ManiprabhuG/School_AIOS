@@ -51,6 +51,46 @@ export async function POST(request: Request) {
         data: dataObj as any,
       });
 
+      // Record Account Ledger transaction if PO status is Paid and account exists
+      if (dataObj.paymentStatus === 'Paid' && dataObj.totalAmount > 0) {
+        let accountId = body.accountId;
+        if (!accountId) {
+          const defaultAcc = await db.financialAccount.findFirst({
+            where: { OR: [{ accountType: 'BANK' }, { accountType: { contains: 'Bank' } }] }
+          });
+          accountId = defaultAcc?.id;
+        }
+
+        if (accountId) {
+          const account = await db.financialAccount.findUnique({ where: { id: accountId } });
+          if (account) {
+            const newBalance = account.currentBalance - dataObj.totalAmount;
+            await db.financialAccount.update({
+              where: { id: accountId },
+              data: { currentBalance: newBalance },
+            });
+
+            await db.accountTransaction.create({
+              data: {
+                txnNumber: `TXN-PO-${created.poNumber}`,
+                accountId: account.id,
+                accountName: account.accountName,
+                date: dataObj.orderDate,
+                referenceNo: created.poNumber,
+                module: 'PURCHASE',
+                transactionType: 'EXPENSE',
+                description: `Purchase Payment: Vendor ${created.supplierName} (${created.itemsCount} items)`,
+                paymentMethod: 'Bank Transfer',
+                debit: dataObj.totalAmount,
+                credit: 0,
+                runningBalance: newBalance,
+                createdBy: 'Purchase Manager',
+              },
+            });
+          }
+        }
+      }
+
       const mapped = {
         ...created,
         deliveryDate: created.expectedDate,
@@ -80,6 +120,46 @@ export async function PUT(request: Request) {
     if (status) dbUpdates.paymentStatus = status;
 
     if (isDbConnected()) {
+      const oldPO = await db.purchaseOrder.findUnique({ where: { id } });
+      if (oldPO && oldPO.paymentStatus !== 'Paid' && dbUpdates.paymentStatus === 'Paid') {
+        let accountId = body.accountId;
+        if (!accountId) {
+          const defaultAcc = await db.financialAccount.findFirst({
+            where: { OR: [{ accountType: 'BANK' }, { accountType: { contains: 'Bank' } }] }
+          });
+          accountId = defaultAcc?.id;
+        }
+
+        if (accountId) {
+          const account = await db.financialAccount.findUnique({ where: { id: accountId } });
+          if (account) {
+            const newBalance = account.currentBalance - (dbUpdates.totalAmount ?? oldPO.totalAmount);
+            await db.financialAccount.update({
+              where: { id: accountId },
+              data: { currentBalance: newBalance },
+            });
+
+            await db.accountTransaction.create({
+              data: {
+                txnNumber: `TXN-PO-${oldPO.poNumber}`,
+                accountId: account.id,
+                accountName: account.accountName,
+                date: dbUpdates.orderDate ?? oldPO.orderDate,
+                referenceNo: oldPO.poNumber,
+                module: 'PURCHASE',
+                transactionType: 'EXPENSE',
+                description: `Purchase Payment: Vendor ${oldPO.supplierName} (${dbUpdates.itemsCount ?? oldPO.itemsCount} items)`,
+                paymentMethod: 'Bank Transfer',
+                debit: dbUpdates.totalAmount ?? oldPO.totalAmount,
+                credit: 0,
+                runningBalance: newBalance,
+                createdBy: 'Purchase Manager',
+              },
+            });
+          }
+        }
+      }
+
       await db.purchaseOrder.update({
         where: { id },
         data: dbUpdates,

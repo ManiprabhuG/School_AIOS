@@ -278,6 +278,29 @@ export default function SalesPage() {
         console.error('Failed to save sales item to DB:', err);
       }
 
+      // Automatically show printing preview
+      setPrintReceiptData({
+        receiptNumber: newSale.invoiceNo || `INV-${newSale.id}`,
+        title: 'POS UNIFORM & STORE SALES RECEIPT',
+        studentName: newSale.customerName,
+        admissionNo: 'ADM-POS-2026',
+        paymentDate: newSale.date || new Date().toISOString().split('T')[0],
+        paymentMethod: newSale.paymentMethod || 'Cash',
+        cashierName: 'Store Cashier',
+        items: [
+          {
+            name: newSale.itemName,
+            category: newSale.itemCategory,
+            qty: newSale.quantity,
+            unitPrice: newSale.unitPrice,
+            amount: newSale.totalAmount,
+          },
+        ],
+        subtotal: newSale.totalAmount,
+        discount: newSale.discount || 0,
+        totalAmount: newSale.netAmount,
+        notes: 'Items once sold can be exchanged within 7 days with tag intact.',
+      });
 
       if (!saveAndNew) setIsAddModalOpen(false);
     }
