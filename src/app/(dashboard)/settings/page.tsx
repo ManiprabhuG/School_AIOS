@@ -240,7 +240,7 @@ export default function SettingsPage() {
     });
   };
 
-  const handleAdjustBalanceSubmit = () => {
+  const handleAdjustBalanceSubmit = async () => {
     if (!adjustModalAccount || adjustAmount <= 0) {
       alert('Please enter a valid positive adjustment amount');
       return;
@@ -251,6 +251,37 @@ export default function SettingsPage() {
     }
 
     adjustAccountBalance(adjustModalAccount.id, adjustType, adjustAmount, adjustReason, 'Dr. Rajesh Sharma');
+
+    const newBalance = adjustType === 'CREDIT'
+      ? adjustModalAccount.currentBalance + adjustAmount
+      : adjustModalAccount.currentBalance - adjustAmount;
+
+    try {
+      await fetch('/api/financial-accounts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: adjustModalAccount.id, currentBalance: newBalance }),
+      });
+
+      await fetch('/api/account-transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: adjustModalAccount.id,
+          accountName: adjustModalAccount.accountName,
+          transactionType: adjustType === 'CREDIT' ? 'INCOME' : 'EXPENSE',
+          module: 'ADJUSTMENT',
+          description: `Balance Adjustment: ${adjustReason}`,
+          paymentMethod: 'Internal Adjustment',
+          credit: adjustType === 'CREDIT' ? adjustAmount : 0,
+          debit: adjustType === 'DEBIT' ? adjustAmount : 0,
+          createdBy: 'Dr. Rajesh Sharma',
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to sync balance adjustment to DB:', err);
+    }
+
     setAdjustModalAccount(null);
     setAdjustAmount(0);
     setAdjustReason('');

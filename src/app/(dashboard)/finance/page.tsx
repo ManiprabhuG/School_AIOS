@@ -469,6 +469,9 @@ export default function FinancePage() {
       return;
     }
 
+    const fromAcc = financialAccounts.find((a) => a.id === transferFromId);
+    const toAcc = financialAccounts.find((a) => a.id === transferToId);
+
     const success = transferFunds(
       transferFromId,
       transferToId,
@@ -477,7 +480,57 @@ export default function FinancePage() {
       'Dr. Rajesh Sharma'
     );
 
-    if (success) {
+    if (success && fromAcc && toAcc) {
+      const fromNewBal = fromAcc.currentBalance - transferAmount;
+      const toNewBal = toAcc.currentBalance + transferAmount;
+
+      try {
+        await Promise.all([
+          fetch('/api/financial-accounts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: fromAcc.id, currentBalance: fromNewBal }),
+          }),
+          fetch('/api/financial-accounts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: toAcc.id, currentBalance: toNewBal }),
+          }),
+          fetch('/api/account-transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              accountId: fromAcc.id,
+              accountName: fromAcc.accountName,
+              transactionType: 'EXPENSE',
+              module: 'TRANSFER',
+              description: `Inter-Account Transfer OUT to ${toAcc.accountName}: ${transferRemark || 'Transfer'}`,
+              paymentMethod: 'Internal Transfer',
+              debit: transferAmount,
+              credit: 0,
+              createdBy: 'Dr. Rajesh Sharma',
+            }),
+          }),
+          fetch('/api/account-transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              accountId: toAcc.id,
+              accountName: toAcc.accountName,
+              transactionType: 'INCOME',
+              module: 'TRANSFER',
+              description: `Inter-Account Transfer IN from ${fromAcc.accountName}: ${transferRemark || 'Transfer'}`,
+              paymentMethod: 'Internal Transfer',
+              credit: transferAmount,
+              debit: 0,
+              createdBy: 'Dr. Rajesh Sharma',
+            }),
+          }),
+        ]);
+      } catch (err) {
+        console.error('Failed to sync transfer to DB:', err);
+      }
+
       setIsTransferOpen(false);
       setTransferFromId('');
       setTransferToId('');

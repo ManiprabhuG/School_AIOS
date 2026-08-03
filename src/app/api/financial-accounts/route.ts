@@ -8,9 +8,44 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     if (isDbConnected()) {
-      const accounts = await (db as any).financialAccount.findMany({
+      let accounts = await (db as any).financialAccount.findMany({
         orderBy: { createdAt: 'desc' },
       });
+      if (accounts.length === 0) {
+        await (db as any).financialAccount.createMany({
+          data: [
+            {
+              id: 'acc-main-001',
+              accountName: 'Main School Account',
+              accountCode: 'ACC-MAIN-001',
+              accountType: 'School Bank Account',
+              bankName: 'State Bank of India',
+              branch: 'Main Branch, Knowledge City',
+              accountNumber: '30129844001',
+              ifscCode: 'SBIN0004012',
+              openingBalance: 500000,
+              currentBalance: 500000,
+              openingDate: '2026-04-01',
+              status: 'ACTIVE',
+              description: 'Central operational bank account for fee receipts and direct disbursements.',
+            },
+            {
+              id: 'acc-cash-001',
+              accountName: 'Cash In Hand',
+              accountCode: 'ACC-CASH-001',
+              accountType: 'Cash Fund Account',
+              openingBalance: 50000,
+              currentBalance: 50000,
+              openingDate: '2026-04-01',
+              status: 'ACTIVE',
+              description: 'Main cash fund account for physical cash collected and office cash expenses.',
+            },
+          ],
+        });
+        accounts = await (db as any).financialAccount.findMany({
+          orderBy: { createdAt: 'desc' },
+        });
+      }
       return NextResponse.json({ success: true, data: accounts });
     }
   } catch (err) {
@@ -39,7 +74,7 @@ export async function POST(request: Request) {
                 id: 'acc-main-001',
                 accountName: 'Main School Account',
                 accountCode: 'ACC-MAIN-001',
-                accountType: 'BANK',
+                accountType: 'School Bank Account',
                 bankName: 'State Bank of India',
                 branch: 'Main Branch, Knowledge City',
                 accountNumber: '30129844001',
@@ -54,7 +89,7 @@ export async function POST(request: Request) {
                 id: 'acc-cash-001',
                 accountName: 'Cash In Hand',
                 accountCode: 'ACC-CASH-001',
-                accountType: 'CASH',
+                accountType: 'Cash Fund Account',
                 openingBalance: 50000,
                 currentBalance: 50000,
                 openingDate: '2026-04-01',
@@ -84,7 +119,7 @@ export async function POST(request: Request) {
       accountNumber: body.accountNumber ? String(body.accountNumber) : null,
       ifscCode: body.ifscCode ? String(body.ifscCode) : null,
       openingBalance: openingBal,
-      currentBalance: openingBal,
+      currentBalance: body.currentBalance !== undefined ? Number(body.currentBalance) : openingBal,
       openingDate: String(body.openingDate || new Date().toISOString().split('T')[0]),
       status: String(body.status || 'ACTIVE'),
       description: body.description ? String(body.description) : null,
@@ -114,6 +149,9 @@ export async function PUT(request: Request) {
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
     if (isDbConnected()) {
+      if (updates.openingBalance !== undefined) updates.openingBalance = Number(updates.openingBalance);
+      if (updates.currentBalance !== undefined) updates.currentBalance = Number(updates.currentBalance);
+
       const updated = await (db as any).financialAccount.update({
         where: { id },
         data: updates,

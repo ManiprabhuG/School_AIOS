@@ -23,23 +23,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [theme]);
 
   React.useEffect(() => {
-    fetch('/api/students', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          useCrudStore.setState({ students: res.data });
-        }
-      })
-      .catch((err) => console.error('Failed to sync students in dashboard layout:', err));
+    const endpoints: { url: string; key: keyof ReturnType<typeof useCrudStore.getState> }[] = [
+      { url: '/api/students', key: 'students' },
+      { url: '/api/staff', key: 'staff' },
+      { url: '/api/fees', key: 'feePayments' },
+      { url: '/api/fee-structures', key: 'feeStructures' },
+      { url: '/api/finance', key: 'financials' },
+      { url: '/api/financial-accounts', key: 'financialAccounts' },
+      { url: '/api/account-transactions', key: 'accountTransactions' },
+      { url: '/api/inventory', key: 'inventory' },
+      { url: '/api/purchases', key: 'purchases' },
+      { url: '/api/sales', key: 'sales' },
+      { url: '/api/suppliers', key: 'suppliers' },
+      { url: '/api/buses', key: 'buses' },
+      { url: '/api/announcements', key: 'announcements' },
+      { url: '/api/exams', key: 'exams' },
+      { url: '/api/notifications', key: 'notifications' },
+    ];
 
-    fetch('/api/staff', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          useCrudStore.setState({ staff: res.data });
-        }
-      })
-      .catch((err) => console.error('Failed to sync staff in dashboard layout:', err));
+    endpoints.forEach(({ url, key }) => {
+      fetch(url, { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((res) => {
+          if (res.success && Array.isArray(res.data)) {
+            useCrudStore.setState({ [key]: res.data } as any);
+          }
+        })
+        .catch((err) => console.error(`Failed to sync ${key} in dashboard layout:`, err));
+    });
   }, []);
 
 

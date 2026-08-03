@@ -25,9 +25,14 @@ import { useCrudStore } from '@/store/crud-store';
 export default function DashboardCharts() {
   const { students, feePayments, purchases, financials, inventory } = useCrudStore();
 
+  const activeStudents = students.filter((s: any) => !s.isDeleted);
+  const activeFeePayments = feePayments.filter((p: any) => !p.isDeleted);
+  const activePurchases = purchases.filter((p: any) => !p.isDeleted);
+  const activeFinancials = financials.filter((f: any) => !f.isDeleted);
+
   // Dynamic Class Distribution
   const classCounts: Record<string, number> = {};
-  students.forEach((s) => {
+  activeStudents.forEach((s) => {
     const cls = s.className || 'Unassigned';
     classCounts[cls] = (classCounts[cls] || 0) + 1;
   });
@@ -41,28 +46,28 @@ export default function DashboardCharts() {
     : [{ name: 'No Students Enrolled', value: 1, color: '#94a3b8' }];
 
   // Dynamic Monthly Fee Collection
-  const totalFeesCollected = feePayments.reduce((acc, p: any) => acc + (p.amount || p.amountPaid || 0), 0);
+  const totalFeesCollected = activeFeePayments.reduce((acc, p: any) => acc + (p.amount || p.amountPaid || 0), 0);
   const feeCollectionData = [
     { month: 'Current Period', collected: Math.round(totalFeesCollected / 1000), target: 50 },
   ];
 
   // Dynamic Monthly Admissions
   const monthlyAdmissionsData = [
-    { month: 'Active Enrolled', admissions: students.length },
+    { month: 'Active Enrolled', admissions: activeStudents.length },
   ];
 
   // Dynamic Attendance
   const attendanceData = [
-    { day: 'Mon', students: students.length > 0 ? 100 : 0, staff: 100 },
-    { day: 'Tue', students: students.length > 0 ? 100 : 0, staff: 100 },
-    { day: 'Wed', students: students.length > 0 ? 100 : 0, staff: 100 },
-    { day: 'Thu', students: students.length > 0 ? 100 : 0, staff: 100 },
-    { day: 'Fri', students: students.length > 0 ? 100 : 0, staff: 100 },
+    { day: 'Mon', students: activeStudents.length > 0 ? 100 : 0, staff: 100 },
+    { day: 'Tue', students: activeStudents.length > 0 ? 100 : 0, staff: 100 },
+    { day: 'Wed', students: activeStudents.length > 0 ? 100 : 0, staff: 100 },
+    { day: 'Thu', students: activeStudents.length > 0 ? 100 : 0, staff: 100 },
+    { day: 'Fri', students: activeStudents.length > 0 ? 100 : 0, staff: 100 },
   ];
 
   // Dynamic Purchase Analytics
   const purchaseCategoryCounts: Record<string, number> = {};
-  purchases.forEach((p) => {
+  activePurchases.forEach((p) => {
     const cat = (p as any).supplierName || 'General';
     purchaseCategoryCounts[cat] = (purchaseCategoryCounts[cat] || 0) + (p.totalAmount || 0);
   });
@@ -75,8 +80,8 @@ export default function DashboardCharts() {
     : [{ category: 'No Purchases Yet', count: 0 }];
 
   // Dynamic Revenue vs Expense
-  const totalRevenue = financials.filter((f) => f.type === 'Income').reduce((acc, f) => acc + (f.amount || 0), 0) + totalFeesCollected;
-  const totalExpense = financials.filter((f) => f.type === 'Expense').reduce((acc, f) => acc + (f.amount || 0), 0);
+  const totalRevenue = activeFinancials.filter((f) => f.type === 'Income').reduce((acc, f) => acc + (f.amount || 0), 0) + totalFeesCollected;
+  const totalExpense = activeFinancials.filter((f) => f.type === 'Expense').reduce((acc, f) => acc + (f.amount || 0), 0);
   const revenueVsExpenseData = [
     { month: 'Total Recorded', revenue: Math.round(totalRevenue / 1000), expense: Math.round(totalExpense / 1000) },
   ];

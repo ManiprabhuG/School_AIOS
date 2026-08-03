@@ -17,6 +17,9 @@ import Link from 'next/link';
 export default function DashboardWidgets() {
   const { feePayments, exams } = useCrudStore();
 
+  const activeExams = exams.filter((ex: any) => !ex.isDeleted);
+  const activeFeePayments = feePayments.filter((pay: any) => !pay.isDeleted);
+
   const timetable = [
     { period: 'Period 1', time: '08:30 - 09:15', subject: 'Regular Academic Class', class: 'Main Campus', teacher: 'Assigned Faculty', room: 'Room 101' },
   ];
@@ -67,12 +70,12 @@ export default function DashboardWidgets() {
           </Link>
         </div>
         <div className="space-y-3 flex-1">
-          {exams.length === 0 ? (
+          {activeExams.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 italic">
               No Examinations Scheduled Yet
             </div>
           ) : (
-            exams.map((ex: any) => (
+            activeExams.map((ex: any) => (
               <div key={ex.id} className="p-3 rounded-xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/60">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{ex.name || ex.title || 'Exam'}</span>
@@ -107,12 +110,12 @@ export default function DashboardWidgets() {
           </Link>
         </div>
         <div className="space-y-3 flex-1">
-          {feePayments.length === 0 ? (
+          {activeFeePayments.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 italic">
               No Fee Collections Recorded Yet
             </div>
           ) : (
-            feePayments.slice(0, 5).map((pay: any) => (
+            activeFeePayments.slice(0, 5).map((pay: any) => (
               <div key={pay.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{pay.studentName}</p>
