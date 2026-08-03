@@ -69,12 +69,21 @@ export default function KPICards() {
 
   const totalFeeCollected = activeFeePayments.reduce((sum, p: any) => sum + (p.amount || p.amountPaid || 0), 0);
   const totalPendingFees = activeStudents.reduce((sum, s: any) => {
-    if (s.dueFees !== undefined && s.dueFees !== null) {
-      return sum + Number(s.dueFees || 0);
-    }
-    const total = Number(s.totalFees) || 0;
-    const paid = Number(s.paidFees) || 0;
-    return sum + Math.max(0, total - paid);
+    const studentPayments = activeFeePayments.filter(
+      (p: any) =>
+        p.studentId === s.id ||
+        (p.studentName && s.name && p.studentName.trim().toLowerCase() === s.name.trim().toLowerCase())
+    );
+    const totalPaidForStudent = studentPayments.reduce(
+      (pSum: number, p: any) => pSum + Number(p.amount || p.amountPaid || 0),
+      0
+    );
+
+    const totalFeesForStudent = Number(s.totalFees) || 60000;
+    const paidSoFar = Math.max(Number(s.paidFees || 0), totalPaidForStudent);
+    const due = Math.max(0, totalFeesForStudent - paidSoFar);
+
+    return sum + due;
   }, 0);
   const totalInventoryCount = activeInventory.reduce((sum, i: any) => sum + (i.quantityInStock || i.quantity || 0), 0);
   const lowStockCount = activeInventory.filter((i: any) => (i.quantityInStock || i.quantity || 0) < (i.minReorderLevel || i.minStock || 10)).length;

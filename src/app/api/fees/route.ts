@@ -5,6 +5,46 @@ import { useCrudStore } from '@/store/crud-store';
 
 export const dynamic = 'force-dynamic';
 
+async function syncStudentFees(studentId: string, studentName?: string) {
+  if (!isDbConnected()) return;
+  try {
+    const student = await db.student.findFirst({
+      where: {
+        OR: [
+          { id: studentId },
+          ...(studentName ? [{ name: studentName }] : []),
+        ],
+      },
+    });
+    if (!student) return;
+
+    const payments = await db.feePayment.findMany({
+      where: {
+        OR: [
+          { studentId: student.id },
+          { studentName: student.name },
+        ],
+      },
+    });
+
+    const totalPaid = payments.reduce((sum, p) => sum + (p.amountPaid || (p as any).amount || 0), 0);
+    const totalFees = student.totalFees || 60000;
+    const dueFees = Math.max(0, totalFees - totalPaid);
+    const feeStatus = dueFees === 0 ? 'Paid' : totalPaid > 0 ? 'Partial' : 'Pending';
+
+    await db.student.update({
+      where: { id: student.id },
+      data: {
+        paidFees: totalPaid,
+        dueFees: dueFees,
+        feeStatus: feeStatus,
+      },
+    });
+  } catch (err) {
+    console.error('Failed to sync student fees in DB:', err);
+  }
+}
+
 export async function GET() {
   try {
     if (isDbConnected()) {
@@ -103,6 +143,8 @@ export async function POST(request: Request) {
         }
       }
 
+      await syncStudentFees(dataObj.studentId, dataObj.studentName);
+
       const mapped = {
         ...created,
         amount: created.amountPaid,
@@ -168,6 +210,9 @@ export async function PUT(request: Request) {
         where: { id },
         data: validDbFields,
       });
+
+      await syncStudentFees(updated.studentId, updated.studentName);
+
       const mapped = {
         ...updated,
         amount: updated.amountPaid,
@@ -196,9 +241,13 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
     if (isDbConnected()) {
+      const existing = await db.feePayment.findUnique({ where: { id } });
       await db.feePayment.delete({
         where: { id },
       });
+      if (existing) {
+        await syncStudentFees(existing.studentId, existing.studentName);
+      }
       revalidatePath('/fees');
       return NextResponse.json({ success: true });
     }
