@@ -48,11 +48,19 @@ function PersonNameInput({
 
   const category = (formData.entityType || formData.personType || formData.customerType || '').toLowerCase();
   const isStaffCategory = category === 'staff';
-  const list = isStaffCategory ? staff : students;
+  const rawList = isStaffCategory ? staff : students;
+  const list = useMemo(() => rawList.filter((item: any) => !item.isDeleted), [rawList]);
 
   const filtered = useMemo(() => {
     const q = (value || '').trim().toLowerCase();
     if (!q) return list;
+
+    const isExactMatch = list.some(
+      (item: any) =>
+        (item.name || `${item.firstName || ''} ${item.lastName || ''}`).trim().toLowerCase() === q
+    );
+    if (isExactMatch) return list;
+
     return list.filter((item: any) => {
       const name = (item.name || `${item.firstName || ''} ${item.lastName || ''}`).toLowerCase();
       const idStr = (item.admissionNo || item.employeeId || item.empId || item.rollNo || '').toLowerCase();
