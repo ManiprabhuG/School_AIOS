@@ -11,6 +11,7 @@ export interface FieldConfig {
   required?: boolean;
   readOnly?: boolean;
   hidden?: boolean | ((formData: Record<string, any>) => boolean);
+  description?: string | ((formData: Record<string, any>) => React.ReactNode | string);
   options?: { label: string; value: string }[];
   placeholder?: string;
   defaultValue?: any;
@@ -424,6 +425,12 @@ export function CrudModal({
                         isReadOnly ? 'bg-slate-100 dark:bg-slate-800/60 cursor-not-allowed text-slate-500' : 'bg-slate-50 dark:bg-slate-800'
                       }`}
                     />
+                  )}
+
+                  {Boolean(field.description) && (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                      {typeof field.description === 'function' ? field.description(formData) : field.description}
+                    </div>
                   )}
                 </div>
               );

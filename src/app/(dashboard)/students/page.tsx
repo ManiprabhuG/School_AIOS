@@ -12,12 +12,14 @@ import { ImportModal } from '@/components/crud/ImportModal';
 import { AuditLogViewer } from '@/components/crud/AuditLogViewer';
 import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
 import { formatCurrency } from '@/lib/utils';
+import { getFeeStructureForClass } from '@/lib/fee-matrix-defaults';
 import { GraduationCap, Phone, Mail, MapPin, Bus, Eye } from 'lucide-react';
 
 export default function StudentManagementPage() {
   const router = useRouter();
   const {
     students,
+    feeStructures,
     auditLogs,
     addRecord,
     updateRecord,
@@ -45,6 +47,15 @@ export default function StudentManagementPage() {
         }
       })
       .catch((err) => console.error('Failed to load students from DB:', err));
+
+    fetch('/api/fee-structures', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          useCrudStore.setState({ feeStructures: res.data });
+        }
+      })
+      .catch((err) => console.error('Failed to load fee structures from DB:', err));
   }, []);
 
 
@@ -120,7 +131,33 @@ export default function StudentManagementPage() {
     { name: 'parentEmail', label: 'Parent Email', type: 'email' },
     { name: 'address', label: 'Residential Address', type: 'textarea', colSpan: 2 },
     { name: 'busRoute', label: 'Bus Route (Optional)', type: 'text' },
-    { name: 'totalFees', label: 'Annual Fee (₹)', type: 'number' },
+    {
+      name: 'totalFees',
+      label: 'Annual Fee (₹)',
+      type: 'number',
+      description: (formData) => {
+        const targetClass = formData.className || '10th';
+        const fs = getFeeStructureForClass(targetClass, feeStructures);
+        if (!fs) return null;
+        const parts = [];
+        if (fs.tuitionFee) parts.push(`Tuition: ₹${fs.tuitionFee.toLocaleString('en-IN')}`);
+        if (fs.admissionFee) parts.push(`Adm: ₹${fs.admissionFee.toLocaleString('en-IN')}`);
+        if (fs.transportFee) parts.push(`Transport: ₹${fs.transportFee.toLocaleString('en-IN')}`);
+        if (fs.uniformFee) parts.push(`Uniform: ₹${fs.uniformFee.toLocaleString('en-IN')}`);
+        if (fs.labFee) parts.push(`Lab: ₹${fs.labFee.toLocaleString('en-IN')}`);
+
+        return (
+          <div className="mt-1 p-2 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/50 text-[11px] text-blue-700 dark:text-blue-300">
+            <span className="font-bold flex items-center gap-1">
+              ✨ Auto-filled from Fee Structure Matrix (Class {targetClass}) • Editable
+            </span>
+            <div className="text-[10px] opacity-90 mt-0.5">
+              Breakdown: {parts.join(' | ')} = <strong className="font-extrabold text-blue-900 dark:text-blue-100">₹{(fs.totalAnnualFee || 0).toLocaleString('en-IN')}</strong>
+            </div>
+          </div>
+        );
+      },
+    },
     { name: 'photo', label: 'Student Photo', type: 'image' },
   ];
 
@@ -196,15 +233,34 @@ export default function StudentManagementPage() {
     },
   ];
 
+  const handleFormChange = (formData: Record<string, any>, changedField: string, newValue: any) => {
+    if (changedField === 'className' || changedField === '_init') {
+      const targetClass = changedField === 'className' ? newValue : formData.className;
+      if (targetClass) {
+        if (changedField === '_init' && editingStudent && editingStudent.className === targetClass && editingStudent.totalFees) {
+          return;
+        }
+        const fs = getFeeStructureForClass(targetClass, feeStructures);
+        if (fs && fs.totalAnnualFee !== undefined && fs.totalAnnualFee !== null) {
+          return { totalFees: fs.totalAnnualFee };
+        }
+      }
+    }
+  };
+
   const handleSaveStudent = async (data: Record<string, any>, saveAndNew?: boolean) => {
     const isHigherSec = data.className === '11th' || data.className === '12th';
     const courseValue = isHigherSec ? (data.course || 'Bio-Maths') : '';
+    const fsForClass = getFeeStructureForClass(data.className, feeStructures);
+    const annualFee = Number(data.totalFees) > 0 ? Number(data.totalFees) : (fsForClass?.totalAnnualFee || 60000);
 
     if (editingStudent) {
       const updatedData = {
         ...data,
         name: `${data.firstName} ${data.lastName}`,
         course: courseValue,
+        totalFees: annualFee,
+        dueFees: Math.max(0, annualFee - (editingStudent.paidFees || 0)),
       };
       updateRecord('students', editingStudent.id, updatedData);
       try {
@@ -239,9 +295,9 @@ export default function StudentManagementPage() {
         address: data.address || '',
         busRoute: data.busRoute || '',
         feeStatus: 'Pending',
-        totalFees: Number(data.totalFees) || 60000,
+        totalFees: annualFee,
         paidFees: 0,
-        dueFees: Number(data.totalFees) || 60000,
+        dueFees: annualFee,
         attendancePercent: 100,
         joiningDate: new Date().toISOString().split('T')[0],
         status: 'Active',
@@ -330,6 +386,7 @@ export default function StudentManagementPage() {
         fields={studentFields}
         initialData={editingStudent ? { ...editingStudent } : null}
         onSave={handleSaveStudent}
+        onFormChange={handleFormChange}
       />
 
       {/* Import Modal */}

@@ -12,6 +12,7 @@ import { ImportModal } from '@/components/crud/ImportModal';
 import { AuditLogViewer } from '@/components/crud/AuditLogViewer';
 import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
 import { formatCurrency } from '@/lib/utils';
+import { getFeeStructureForClass } from '@/lib/fee-matrix-defaults';
 import { exportToPDF } from '@/lib/export-utils';
 import PrintModal from '@/components/print/PrintModal';
 import { ReceiptData } from '@/components/print/ReceiptTemplate';
@@ -497,7 +498,7 @@ export default function FeesPage() {
     }
 
     const category: string = String(currentData.feeCategory || 'Tuition');
-    const fs = feeStructures.find((f) => f.className === targetClass || f.className === updates.className);
+    const fs = getFeeStructureForClass(targetClass || updates.className, feeStructures);
 
     if (fs) {
       if (category === 'Tuition') updates.amount = fs.tuitionFee;
