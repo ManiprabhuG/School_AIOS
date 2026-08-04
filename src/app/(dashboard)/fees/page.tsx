@@ -409,10 +409,10 @@ export default function FeesPage() {
         items: [
           { name: `${newPay.feeCategory} Fee Payment`, amount: newPay.amount },
         ],
-        subtotal: newPay.totalAmount,
+        subtotal: newPay.totalAmount ?? newPay.amount,
         totalAmount: newPay.amount,
         remainingBalance: newPay.dueAmount,
-        notes: newPay.dueAmount > 0 ? `Please note: a balance of ₹${newPay.dueAmount.toLocaleString('en-IN')} is outstanding.` : 'All dues cleared. Thank you!',
+        notes: (newPay.dueAmount ?? 0) > 0 ? `Please note: a balance of ₹${(newPay.dueAmount ?? 0).toLocaleString('en-IN')} is outstanding.` : 'All dues cleared. Thank you!',
       });
 
       if (!saveAndNew) setIsAddModalOpen(false);
