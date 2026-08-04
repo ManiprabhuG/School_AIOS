@@ -467,3 +467,87 @@ model PaymentMethodConfig {
   @@map("payment_method_configs")
 }
 
+model LedgerBook {
+  id             String   @id @default(uuid())
+  ledgerName     String   @default("Central School Ledger")
+  academicYear   String   @default("2025 - 2026")
+  totalDebits    Float    @default(0)
+  totalCredits   Float    @default(0)
+  currentBalance Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("ledger_book")
+}
+
+model LedgerTransaction {
+  id              String   @id @default(uuid())
+  txnNumber       String   @unique
+  accountId       String
+  accountName     String
+  date            String
+  referenceNo     String?
+  module          String
+  transactionType String
+  description     String
+  paymentMethod   String
+  debit           Float    @default(0)
+  credit          Float    @default(0)
+  runningBalance  Float    @default(0)
+  createdBy       String
+  status          String   @default("Completed")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("ledger_transactions")
+}
+
+model AccountBalance {
+  id             String   @id @default(uuid())
+  accountId      String   @unique
+  accountName    String
+  openingBalance Float    @default(0)
+  totalIncome    Float    @default(0)
+  totalExpense   Float    @default(0)
+  currentBalance Float    @default(0)
+  lastUpdated    DateTime @updatedAt
+
+  @@map("account_balances")
+}
+
+model PaymentMethod {
+  id          String   @id @default(uuid())
+  methodName  String   @unique
+  category    String   // CASH | DIGITAL | BANK_TRANSFER
+  targetType  String   // CASH_IN_HAND | SCHOOL_BANK_ACCOUNT
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("payment_methods")
+}
+
+model TransactionSource {
+  id          String   @id @default(uuid())
+  sourceCode  String   @unique // FEES | PURCHASE | SALES | INVENTORY | FINANCE | TRANSPORT | OTHER_INCOME
+  sourceName  String
+  description String?
+  isActive    Boolean  @default(true)
+
+  @@map("transaction_sources")
+}
+
+model AccountAuditLog {
+  id            String   @id @default(uuid())
+  transactionId String
+  module        String
+  referenceNo   String?
+  amount        Float
+  paymentMethod String
+  accountName   String
+  performedBy   String
+  balanceBefore Float
+  balanceAfter  Float
+  timestamp     DateTime @default(now())
+
+  @@map("account_audit_logs")
+}

@@ -303,11 +303,48 @@ export const useCrudStore = create<CrudState>()(
         const state = get();
         const accounts = state.financialAccounts;
 
-        let targetAccount = accounts.find((a) => a.id === txData.accountId);
+        // Duplicate Check (Required Change 9)
+        if (txData.referenceNo && txData.referenceNo.trim() !== '') {
+          const existingTx = state.accountTransactions.find(
+            (t) =>
+              t.referenceNo === txData.referenceNo &&
+              t.module === (txData.module || 'FINANCE') &&
+              t.transactionType === (txData.transactionType || 'INCOME')
+          );
+          if (existingTx) {
+            console.log('Duplicate transaction prevented for reference:', txData.referenceNo);
+            return existingTx;
+          }
+        }
+
+        // Account Routing Logic (Required Change 5)
+        let targetAccount: FinancialAccount | undefined;
+        const pMethod = (txData.paymentMethod || '').toLowerCase();
+        
+        if (txData.accountId) {
+          targetAccount = accounts.find((a) => a.id === txData.accountId);
+        }
+
         if (!targetAccount && accounts.length > 0) {
-          targetAccount = txData.paymentMethod?.toLowerCase().includes('cash')
-            ? accounts.find((a) => a.accountType === 'Cash Fund Account' || a.accountName.toLowerCase().includes('cash')) || accounts[0]
-            : accounts.find((a) => a.accountType === 'School Bank Account' || a.accountName.toLowerCase().includes('main')) || accounts[0];
+          if (pMethod.includes('cash')) {
+            targetAccount =
+              accounts.find(
+                (a) =>
+                  a.accountType === 'Cash Fund Account' ||
+                  a.accountType === 'CASH' ||
+                  a.accountName.toLowerCase().includes('cash')
+              ) || accounts[0];
+          } else {
+            // UPI, QR Payment, Online Payment, Digital Collection, Electronic Transfer, Card, Bank Transfer, Cheque, NEFT, RTGS, IMPS -> School Bank Account
+            targetAccount =
+              accounts.find(
+                (a) =>
+                  a.accountType === 'School Bank Account' ||
+                  a.accountType === 'BANK' ||
+                  a.accountName.toLowerCase().includes('main') ||
+                  a.accountName.toLowerCase().includes('bank')
+              ) || accounts[0];
+          }
         }
 
         if (!targetAccount) return null;

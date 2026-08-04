@@ -45,24 +45,56 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { accountId, transactionType, amount, debit, credit, description, paymentMethod, referenceNo, module, createdBy } = body;
-
-    if (!accountId) {
-      return NextResponse.json({ success: false, error: 'Target Account ID is required' }, { status: 400 });
-    }
+    let { accountId, transactionType, amount, debit, credit, description, paymentMethod, referenceNo, module, createdBy } = body;
 
     const isCredit = transactionType === 'INCOME' || (credit && credit > 0);
     const txAmount = isCredit ? Number(credit || amount || 0) : Number(debit || amount || 0);
+    const pMethod = (paymentMethod || 'Cash').toLowerCase();
 
     if (isDbConnected()) {
-      const account = await db.financialAccount.findUnique({ where: { id: accountId } });
-      if (!account) return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
+      // Duplicate Check (Required Change 9)
+      if (referenceNo && referenceNo.trim() !== '') {
+        const existing = await db.accountTransaction.findFirst({
+          where: {
+            referenceNo: referenceNo.trim(),
+            module: module || 'FINANCE',
+            transactionType: isCredit ? 'INCOME' : 'EXPENSE',
+          },
+        });
+        if (existing) {
+          return NextResponse.json({ success: true, data: existing, message: 'Duplicate transaction skipped' });
+        }
+      }
+
+      // Auto Account Selection (Required Change 5)
+      let account;
+      if (accountId) {
+        account = await db.financialAccount.findUnique({ where: { id: accountId } });
+      }
+
+      if (!account) {
+        if (pMethod.includes('cash')) {
+          account = await db.financialAccount.findFirst({
+            where: { OR: [{ accountType: 'CASH' }, { accountType: 'Cash Fund Account' }, { accountName: { contains: 'Cash' } }] },
+          });
+        } else {
+          account = await db.financialAccount.findFirst({
+            where: { OR: [{ accountType: 'BANK' }, { accountType: 'School Bank Account' }, { accountName: { contains: 'Main' } }] },
+          });
+        }
+
+        if (!account) {
+          account = await db.financialAccount.findFirst();
+        }
+      }
+
+      if (!account) return NextResponse.json({ success: false, error: 'No active account found' }, { status: 404 });
 
       const newBalance = isCredit ? account.currentBalance + txAmount : account.currentBalance - txAmount;
 
       const created = await db.$transaction(async (tx) => {
         await tx.financialAccount.update({
-          where: { id: accountId },
+          where: { id: account.id },
           data: { currentBalance: newBalance },
         });
 
@@ -92,7 +124,7 @@ export async function POST(request: Request) {
     const store = useCrudStore.getState();
     const createdTx = store.recordAccountTransaction({
       txnNumber: body.txnNumber,
-      accountId,
+      accountId: accountId || '',
       accountName: body.accountName || '',
       date: body.date,
       referenceNo,
