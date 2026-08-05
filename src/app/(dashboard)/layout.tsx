@@ -46,7 +46,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .then((res) => res.json())
         .then((res) => {
           if (res.success && Array.isArray(res.data)) {
-            useCrudStore.setState({ [key]: res.data } as any);
+            if (key === 'accountTransactions') {
+              useCrudStore.setState((prev: any) => {
+                const serverList = res.data || [];
+                const serverKeys = new Set(serverList.map((t: any) => t.id || t.txnNumber));
+                const clientOnly = (prev.accountTransactions || []).filter(
+                  (t: any) =>
+                    !serverKeys.has(t.id) &&
+                    !serverKeys.has(t.txnNumber) &&
+                    (!t.referenceNo || !serverList.some((s: any) => s.referenceNo === t.referenceNo))
+                );
+                return { accountTransactions: [...serverList, ...clientOnly] };
+              });
+            } else {
+              useCrudStore.setState({ [key]: res.data } as any);
+            }
           }
         })
         .catch((err) => console.error(`Failed to sync ${key} in dashboard layout:`, err));

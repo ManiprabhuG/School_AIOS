@@ -105,12 +105,16 @@ export default function FeesPage() {
       name: 'feeCategory',
       label: 'Fee Category',
       type: 'select',
+      defaultValue: 'Annual',
       options: [
+        { label: 'Annual Fee', value: 'Annual' },
         { label: 'Tuition', value: 'Tuition' },
         { label: 'Transport', value: 'Transport' },
         { label: 'Exam', value: 'Exam' },
         { label: 'Uniform', value: 'Uniform' },
         { label: 'Books', value: 'Books' },
+        { label: 'Admission', value: 'Admission' },
+        { label: 'Lab', value: 'Lab' },
         { label: 'Other', value: 'Other' },
       ],
     },
@@ -166,15 +170,17 @@ export default function FeesPage() {
     );
 
     const fs = feeStructures.find((f) => f.className === p.className);
-    const category: string = String(p.feeCategory || 'Tuition');
+    const category: string = String(p.feeCategory || 'Annual');
     let defaultCategoryFee = 60000;
     if (fs) {
-      if (category === 'Tuition') defaultCategoryFee = fs.tuitionFee;
+      if (category === 'Annual' || category === 'Annual Fee') defaultCategoryFee = fs.totalAnnualFee;
+      else if (category === 'Tuition') defaultCategoryFee = fs.tuitionFee;
       else if (category === 'Admission') defaultCategoryFee = fs.admissionFee;
       else if (category === 'Transport') defaultCategoryFee = fs.transportFee;
       else if (category === 'Uniform') defaultCategoryFee = fs.uniformFee;
-      else if (category === 'Lab' || category === 'Books') defaultCategoryFee = fs.labFee;
-      else defaultCategoryFee = fs.totalAnnualFee;
+      else if (category === 'Lab') defaultCategoryFee = fs.labFee;
+      else if (category === 'Exam' || category === 'Books' || category === 'Other') defaultCategoryFee = p.amount || 0;
+      else defaultCategoryFee = 0;
     }
 
     const totalFee = p.totalAmount || (std?.dueFees ? p.amount + std.dueFees : defaultCategoryFee);
@@ -301,16 +307,18 @@ export default function FeesPage() {
     const collectedAmt = Number(data.amount) || 0;
 
     // Determine expected total amount for category/class
-    const category: string = String(data.feeCategory || 'Tuition');
+    const category: string = String(data.feeCategory || 'Annual');
     const fs = feeStructures.find((f) => f.className === data.className);
     let expectedAmt = collectedAmt;
     if (fs) {
-      if (category === 'Tuition') expectedAmt = fs.tuitionFee;
+      if (category === 'Annual' || category === 'Annual Fee') expectedAmt = fs.totalAnnualFee;
+      else if (category === 'Tuition') expectedAmt = fs.tuitionFee;
       else if (category === 'Admission') expectedAmt = fs.admissionFee;
       else if (category === 'Transport') expectedAmt = fs.transportFee;
       else if (category === 'Uniform') expectedAmt = fs.uniformFee;
-      else if (category === 'Lab' || category === 'Books') expectedAmt = fs.labFee;
-      else expectedAmt = fs.totalAnnualFee;
+      else if (category === 'Lab') expectedAmt = fs.labFee;
+      else if (category === 'Exam' || category === 'Books' || category === 'Other') expectedAmt = collectedAmt;
+      else expectedAmt = collectedAmt;
     } else if (selectedStd?.dueFees) {
       expectedAmt = Math.max(collectedAmt, selectedStd.dueFees);
     }
@@ -497,16 +505,21 @@ export default function FeesPage() {
       targetClass = newValue;
     }
 
-    const category: string = String(currentData.feeCategory || 'Tuition');
+    const category: string = String(currentData.feeCategory || 'Annual');
     const fs = getFeeStructureForClass(targetClass || updates.className, feeStructures);
 
     if (fs) {
-      if (category === 'Tuition') updates.amount = fs.tuitionFee;
+      if (category === 'Annual' || category === 'Annual Fee') updates.amount = fs.totalAnnualFee;
+      else if (category === 'Tuition') updates.amount = fs.tuitionFee;
       else if (category === 'Admission') updates.amount = fs.admissionFee;
       else if (category === 'Transport') updates.amount = fs.transportFee;
       else if (category === 'Uniform') updates.amount = fs.uniformFee;
-      else if (category === 'Lab' || category === 'Books') updates.amount = fs.labFee;
-      else updates.amount = fs.totalAnnualFee;
+      else if (category === 'Lab') updates.amount = fs.labFee;
+      else if (category === 'Exam' || category === 'Books' || category === 'Other') {
+        if (!currentData.amount || currentData.amount === fs.totalAnnualFee) {
+          updates.amount = 0;
+        }
+      }
     }
 
     return updates;

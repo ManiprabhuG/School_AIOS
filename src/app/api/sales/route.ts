@@ -99,6 +99,20 @@ export async function POST(request: Request) {
 
     const store = useCrudStore.getState();
     store.addRecord('sales', dataObj);
+    store.recordAccountTransaction({
+      txnNumber: `TXN-SALE-${dataObj.invoiceNo}`,
+      accountId: body.accountId || '',
+      accountName: '',
+      date: dataObj.date,
+      referenceNo: dataObj.invoiceNo,
+      module: 'SALES',
+      transactionType: 'INCOME',
+      description: `Uniform/Store Sale: ${dataObj.itemName} (${dataObj.customerName})`,
+      paymentMethod: dataObj.paymentMethod,
+      credit: dataObj.totalAmount,
+      debit: 0,
+      createdBy: 'Sales Desk',
+    });
     return NextResponse.json({ success: true, data: dataObj }, { status: 201 });
   } catch (error: any) {
     console.error('Failed to create sales item:', error);

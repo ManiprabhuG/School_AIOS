@@ -387,6 +387,14 @@ export const useCrudStore = create<CrudState>()(
           accountTransactions: [newTx, ...prev.accountTransactions],
         }));
 
+        if (typeof window !== 'undefined') {
+          fetch('/api/account-transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newTx),
+          }).catch((err) => console.error('Failed to sync account transaction to API:', err));
+        }
+
         get().logAudit({
           userId: currentUser.id,
           userName: currentUser.name,

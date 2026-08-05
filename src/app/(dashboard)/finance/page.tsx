@@ -109,7 +109,17 @@ export default function FinancePage() {
       .then((res) => res.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data)) {
-          useCrudStore.setState({ accountTransactions: res.data });
+          useCrudStore.setState((prev) => {
+            const serverList = res.data || [];
+            const serverKeys = new Set(serverList.map((t: any) => t.id || t.txnNumber));
+            const clientOnly = (prev.accountTransactions || []).filter(
+              (t: any) =>
+                !serverKeys.has(t.id) &&
+                !serverKeys.has(t.txnNumber) &&
+                (!t.referenceNo || !serverList.some((s: any) => s.referenceNo === t.referenceNo))
+            );
+            return { accountTransactions: [...serverList, ...clientOnly] };
+          });
         }
       })
       .catch((err) => console.error('Failed to load account transactions from DB:', err));

@@ -102,6 +102,22 @@ export async function POST(request: Request) {
 
     const store = useCrudStore.getState();
     store.addRecord('purchases', dataObj);
+    if (dataObj.paymentStatus === 'Paid' && dataObj.totalAmount > 0) {
+      store.recordAccountTransaction({
+        txnNumber: `TXN-PO-${dataObj.poNumber}`,
+        accountId: body.accountId || '',
+        accountName: '',
+        date: dataObj.orderDate,
+        referenceNo: dataObj.poNumber,
+        module: 'PURCHASE',
+        transactionType: 'EXPENSE',
+        description: `Purchase Payment: Vendor ${dataObj.supplierName} (${dataObj.itemsCount} items)`,
+        paymentMethod: 'Bank Transfer',
+        debit: dataObj.totalAmount,
+        credit: 0,
+        createdBy: 'Purchase Manager',
+      });
+    }
     return NextResponse.json({ success: true, data: dataObj }, { status: 201 });
   } catch (error: any) {
     console.error('Failed to create purchase order:', error);
