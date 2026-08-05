@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { useCrudStore } from '@/store/crud-store';
+import { useUIStore, applyThemeToDOM } from '@/store/ui-store';
 import { School, Lock, User as UserIcon, Eye, EyeOff, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -17,16 +18,18 @@ export default function LoginPage() {
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
 
   const { loginWithCredentials, setUserSession } = useAuthStore();
+  const { theme, companyProfile } = useUIStore();
   const router = useRouter();
 
-  React.useEffect(() => {
+  useEffect(() => {
+    applyThemeToDOM(theme);
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('reason') === 'session_expired') {
         setSessionExpiredNotice(true);
       }
     }
-  }, []);
+  }, [theme]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,10 +97,18 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
         {/* Header Branding & Logo */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center mx-auto shadow-xl shadow-blue-500/30">
-            <School className="w-9 h-9 text-white" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">ABS School Management ERP</h1>
+          {companyProfile?.schoolLogo ? (
+            <div className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center mx-auto shadow-xl shadow-blue-500/20 bg-white p-2">
+              <img src={companyProfile.schoolLogo} alt="School Logo" className="max-w-full max-h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center mx-auto shadow-xl shadow-blue-500/30">
+              <School className="w-9 h-9 text-white" />
+            </div>
+          )}
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">
+            {companyProfile?.schoolName || 'ABS School Management ERP'}
+          </h1>
           <p className="text-xs text-slate-400 font-medium">Enterprise Authentication Portal</p>
         </div>
 

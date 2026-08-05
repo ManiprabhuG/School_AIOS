@@ -19,7 +19,7 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var stored = localStorage.getItem('abs_school_erp_ui_store_v1');
+                  var stored = localStorage.getItem('abs_school_erp_ui_store_v2') || localStorage.getItem('abs_school_erp_ui_store_v1');
                   var theme = 'light';
                   if (stored) {
                     var parsed = JSON.parse(stored);

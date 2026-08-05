@@ -254,29 +254,25 @@ export default function SalesPage() {
         createdBy: 'Sales Desk',
       });
 
-      try {
-        await fetch('/api/sales', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: newSale.id,
-            accountId: data.accountId,
-            invoiceNo: newSale.invoiceNo,
-            customerName: newSale.customerName,
-            customerType: newSale.customerType,
-            date: newSale.date,
-            itemCategory: newSale.itemCategory,
-            itemName: newSale.itemName,
-            quantity: newSale.quantity,
-            unitPrice: newSale.unitPrice,
-            totalAmount: net,
-            paymentMethod: newSale.paymentMethod,
-            paymentStatus: 'Paid',
-          }),
-        });
-      } catch (err) {
-        console.error('Failed to save sales item to DB:', err);
-      }
+      fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: newSale.id,
+          accountId: data.accountId,
+          invoiceNo: newSale.invoiceNo,
+          customerName: newSale.customerName,
+          customerType: newSale.customerType,
+          date: newSale.date,
+          itemCategory: newSale.itemCategory,
+          itemName: newSale.itemName,
+          quantity: newSale.quantity,
+          unitPrice: newSale.unitPrice,
+          totalAmount: net,
+          paymentMethod: newSale.paymentMethod,
+          paymentStatus: 'Paid',
+        }),
+      }).catch((err) => console.error('Failed to save sales item to DB:', err));
 
       // Automatically show printing preview
       setPrintReceiptData({

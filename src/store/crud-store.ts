@@ -651,6 +651,48 @@ export const useCrudStore = create<CrudState>()(
         const targetAccountId = updates.accountId || oldTx.accountId;
         const account = state.financialAccounts.find((a) => a.id === targetAccountId) || state.financialAccounts[0];
 
+        const isCredit = updates.transactionType === 'INCOME' || (updates.credit !== undefined ? Number(updates.credit) > 0 : (oldTx.credit && oldTx.credit > 0));
+        const creditAmt = isCredit ? Number(updates.credit !== undefined ? updates.credit : oldTx.credit) : 0;
+        const debitAmt = !isCredit ? Number(updates.debit !== undefined ? updates.debit : oldTx.debit) : 0;
+        const newAmt = isCredit ? creditAmt : debitAmt;
+        const newDate = updates.date || oldTx.date;
+        const newMethod = updates.paymentMethod || oldTx.paymentMethod;
+        const newDesc = updates.description || oldTx.description;
+        const refNo = oldTx.referenceNo || oldTx.txnNumber;
+
+        // Sync with mother module in store
+        const mod = (oldTx.module || '').toUpperCase();
+        let updatedFeePayments = state.feePayments;
+        let updatedPurchases = state.purchases;
+        let updatedSales = state.sales;
+        let updatedFinancials = state.financials;
+
+        if (mod === 'FEES' || refNo.includes('RCP') || refNo.includes('FEE')) {
+          updatedFeePayments = state.feePayments.map((p) =>
+            p.receiptNo === refNo || p.id === refNo
+              ? { ...p, amount: newAmt, paymentMode: newMethod as any, paymentDate: newDate }
+              : p
+          );
+        } else if (mod === 'PURCHASE' || refNo.includes('PO')) {
+          updatedPurchases = state.purchases.map((p) =>
+            p.poNumber === refNo || p.id === refNo
+              ? { ...p, totalAmount: newAmt, orderDate: newDate }
+              : p
+          );
+        } else if (mod === 'SALES' || refNo.includes('INV') || refNo.includes('SL')) {
+          updatedSales = state.sales.map((s) =>
+            s.invoiceNo === refNo || s.id === refNo
+              ? { ...s, totalAmount: newAmt, netAmount: newAmt, date: newDate, paymentMethod: newMethod as any }
+              : s
+          );
+        } else if (mod === 'FINANCE' || refNo.includes('TXN')) {
+          updatedFinancials = state.financials.map((f) =>
+            f.transactionNo === refNo || (f as any).txnNumber === refNo || f.id === refNo
+              ? { ...f, amount: newAmt, date: newDate, paymentMode: newMethod as any, description: newDesc }
+              : f
+          );
+        }
+
         if (account) {
           let bal = account.currentBalance;
           if (oldTx.transactionType === 'INCOME' || (oldTx.credit && oldTx.credit > 0)) {
@@ -658,10 +700,6 @@ export const useCrudStore = create<CrudState>()(
           } else {
             bal += oldTx.debit || 0;
           }
-
-          const isCredit = updates.transactionType === 'INCOME' || (updates.credit && Number(updates.credit) > 0);
-          const creditAmt = isCredit ? Number(updates.credit !== undefined ? updates.credit : oldTx.credit) : 0;
-          const debitAmt = !isCredit ? Number(updates.debit !== undefined ? updates.debit : oldTx.debit) : 0;
 
           if (isCredit) {
             bal += creditAmt;
@@ -685,11 +723,27 @@ export const useCrudStore = create<CrudState>()(
                   }
                 : t
             ),
+            feePayments: updatedFeePayments,
+            purchases: updatedPurchases,
+            sales: updatedSales,
+            financials: updatedFinancials,
           }));
         } else {
           set((prev) => ({
             accountTransactions: prev.accountTransactions.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+            feePayments: updatedFeePayments,
+            purchases: updatedPurchases,
+            sales: updatedSales,
+            financials: updatedFinancials,
           }));
+        }
+
+        if (typeof window !== 'undefined') {
+          fetch('/api/account-transactions', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, ...updates }),
+          }).catch((err) => console.error('Failed to sync updated account transaction to API:', err));
         }
       },
 
@@ -701,6 +755,14 @@ export const useCrudStore = create<CrudState>()(
 
         const now = new Date().toISOString().split('T')[0];
         const account = state.financialAccounts.find((a) => a.id === oldTx.accountId) || state.financialAccounts[0];
+        const refNo = oldTx.referenceNo || oldTx.txnNumber;
+        const mod = (oldTx.module || '').toUpperCase();
+
+        // Cascade delete from mother modules in store
+        const updatedFeePayments = state.feePayments.filter((p) => p.receiptNo !== refNo && p.id !== refNo);
+        const updatedPurchases = state.purchases.filter((p) => p.poNumber !== refNo && p.id !== refNo);
+        const updatedSales = state.sales.filter((s) => s.invoiceNo !== refNo && s.id !== refNo);
+        const updatedFinancials = state.financials.filter((f) => f.transactionNo !== refNo && (f as any).txnNumber !== refNo && f.id !== refNo);
 
         if (account) {
           let bal = account.currentBalance;
@@ -713,11 +775,25 @@ export const useCrudStore = create<CrudState>()(
           set((prev) => ({
             financialAccounts: prev.financialAccounts.map((a) => (a.id === account.id ? { ...a, currentBalance: bal, updatedAt: now } : a)),
             accountTransactions: prev.accountTransactions.filter((t) => t.id !== id),
+            feePayments: mod === 'FEES' || refNo.includes('RCP') ? updatedFeePayments : prev.feePayments,
+            purchases: mod === 'PURCHASE' || refNo.includes('PO') ? updatedPurchases : prev.purchases,
+            sales: mod === 'SALES' || refNo.includes('INV') ? updatedSales : prev.sales,
+            financials: mod === 'FINANCE' || refNo.includes('TXN') ? updatedFinancials : prev.financials,
           }));
         } else {
           set((prev) => ({
             accountTransactions: prev.accountTransactions.filter((t) => t.id !== id),
+            feePayments: mod === 'FEES' || refNo.includes('RCP') ? updatedFeePayments : prev.feePayments,
+            purchases: mod === 'PURCHASE' || refNo.includes('PO') ? updatedPurchases : prev.purchases,
+            sales: mod === 'SALES' || refNo.includes('INV') ? updatedSales : prev.sales,
+            financials: mod === 'FINANCE' || refNo.includes('TXN') ? updatedFinancials : prev.financials,
           }));
+        }
+
+        if (typeof window !== 'undefined') {
+          fetch(`/api/account-transactions?id=${id}`, {
+            method: 'DELETE',
+          }).catch((err) => console.error('Failed to sync deleted account transaction to API:', err));
         }
       },
 

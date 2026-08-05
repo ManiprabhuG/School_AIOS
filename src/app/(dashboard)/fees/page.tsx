@@ -376,32 +376,28 @@ export default function FeesPage() {
         createdBy: newPay.collectedBy,
       });
 
-      try {
-        await fetch('/api/fees', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: newPay.id,
-            accountId: data.accountId,
-            receiptNo: newPay.receiptNo,
-            studentId: newPay.studentId,
-            studentName: newPay.studentName,
-            admissionNo: selectedStd?.admissionNo || 'ADM-2026-001',
-            className: newPay.className,
-            section: selectedStd?.section || 'A',
-            feeType: newPay.feeCategory,
-            amountPaid: newPay.amount,
-            totalAmount: newPay.totalAmount,
-            dueAmount: newPay.dueAmount,
-            paymentDate: newPay.paymentDate,
-            paymentMode: newPay.paymentMode,
-            cashier: newPay.collectedBy,
-            status: newPay.status,
-          }),
-        });
-      } catch (err) {
-        console.error('Failed to save fee payment to DB:', err);
-      }
+      fetch('/api/fees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: newPay.id,
+          accountId: data.accountId,
+          receiptNo: newPay.receiptNo,
+          studentId: newPay.studentId,
+          studentName: newPay.studentName,
+          admissionNo: selectedStd?.admissionNo || 'ADM-2026-001',
+          className: newPay.className,
+          section: selectedStd?.section || 'A',
+          feeType: newPay.feeCategory,
+          amountPaid: newPay.amount,
+          totalAmount: newPay.totalAmount,
+          dueAmount: newPay.dueAmount,
+          paymentDate: newPay.paymentDate,
+          paymentMode: newPay.paymentMode,
+          cashier: newPay.collectedBy,
+          status: newPay.status,
+        }),
+      }).catch((err) => console.error('Failed to save fee payment to DB:', err));
 
       // Automatically show printing preview
       setPrintReceiptData({

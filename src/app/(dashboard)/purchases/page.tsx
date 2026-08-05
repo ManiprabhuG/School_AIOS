@@ -222,27 +222,23 @@ export default function PurchasesPage() {
         });
       }
 
-      try {
-        await fetch('/api/purchases', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: newPO.id,
-            accountId: data.accountId,
-            poNumber: newPO.poNumber,
-            supplierName: newPO.supplierName,
-            supplierId: newPO.supplierId,
-            orderDate: newPO.orderDate,
-            expectedDate: newPO.deliveryDate,
-            itemsCount: newPO.itemsCount,
-            totalAmount: newPO.totalAmount,
-            paymentStatus: newPO.status,
-            items: [],
-          }),
-        });
-      } catch (err) {
-        console.error('Failed to save PO to DB:', err);
-      }
+      fetch('/api/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: newPO.id,
+          accountId: data.accountId,
+          poNumber: newPO.poNumber,
+          supplierName: newPO.supplierName,
+          supplierId: newPO.supplierId,
+          orderDate: newPO.orderDate,
+          expectedDate: newPO.deliveryDate,
+          itemsCount: newPO.itemsCount,
+          totalAmount: newPO.totalAmount,
+          paymentStatus: newPO.status,
+          items: [],
+        }),
+      }).catch((err) => console.error('Failed to save PO to DB:', err));
 
       // Automatically show printing preview
       setPrintReceiptData({

@@ -205,6 +205,35 @@ export async function PUT(request: Request) {
         },
       });
 
+      // Cascade update to mother module tables in DB
+      const refNo = oldTx.referenceNo || oldTx.txnNumber;
+      const mod = (oldTx.module || '').toUpperCase();
+      const newAmt = isCredit ? creditAmt : debitAmt;
+      const newDate = body.date || oldTx.date;
+      const newMethod = body.paymentMethod || oldTx.paymentMethod;
+
+      if (mod === 'FEES' || refNo.includes('RCP') || refNo.includes('FEE')) {
+        await db.feePayment.updateMany({
+          where: { OR: [{ receiptNo: refNo }, { id: refNo }] },
+          data: { amountPaid: newAmt, paymentMode: newMethod, paymentDate: newDate },
+        }).catch(() => {});
+      } else if (mod === 'PURCHASE' || refNo.includes('PO')) {
+        await db.purchaseOrder.updateMany({
+          where: { OR: [{ poNumber: refNo }, { id: refNo }] },
+          data: { totalAmount: newAmt, orderDate: newDate },
+        }).catch(() => {});
+      } else if (mod === 'SALES' || refNo.includes('INV') || refNo.includes('SL')) {
+        await db.salesItem.updateMany({
+          where: { OR: [{ invoiceNo: refNo }, { id: refNo }] },
+          data: { totalAmount: newAmt, date: newDate, paymentMethod: newMethod },
+        }).catch(() => {});
+      } else if (mod === 'FINANCE' || refNo.includes('TXN')) {
+        await db.financialTransaction.updateMany({
+          where: { OR: [{ txnNumber: refNo }, { id: refNo }] },
+          data: { amount: newAmt, date: newDate, paymentMethod: newMethod, description: body.description || oldTx.description },
+        }).catch(() => {});
+      }
+
       return NextResponse.json({ success: true, data: updated });
     }
 
@@ -239,6 +268,20 @@ export async function DELETE(request: Request) {
             where: { id: account.id },
             data: { currentBalance: balance },
           });
+        }
+
+        const refNo = oldTx.referenceNo || oldTx.txnNumber;
+        const mod = (oldTx.module || '').toUpperCase();
+
+        // Cascade delete from mother module tables in DB
+        if (mod === 'FEES' || refNo.includes('RCP') || refNo.includes('FEE')) {
+          await db.feePayment.deleteMany({ where: { OR: [{ receiptNo: refNo }, { id: refNo }] } }).catch(() => {});
+        } else if (mod === 'PURCHASE' || refNo.includes('PO')) {
+          await db.purchaseOrder.deleteMany({ where: { OR: [{ poNumber: refNo }, { id: refNo }] } }).catch(() => {});
+        } else if (mod === 'SALES' || refNo.includes('INV') || refNo.includes('SL')) {
+          await db.salesItem.deleteMany({ where: { OR: [{ invoiceNo: refNo }, { id: refNo }] } }).catch(() => {});
+        } else if (mod === 'FINANCE' || refNo.includes('TXN')) {
+          await db.financialTransaction.deleteMany({ where: { OR: [{ txnNumber: refNo }, { id: refNo }] } }).catch(() => {});
         }
 
         await db.accountTransaction.delete({
