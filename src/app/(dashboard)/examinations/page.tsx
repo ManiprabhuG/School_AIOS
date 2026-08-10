@@ -20,6 +20,7 @@ export default function ExaminationsPage() {
     exams,
     examMarks,
     students,
+    staff,
     auditLogs,
     addRecord,
     updateRecord,
@@ -31,15 +32,53 @@ export default function ExaminationsPage() {
     importRecords,
   } = useCrudStore();
 
-  const [activeTab, setActiveTab] = useState<'exams' | 'marks'>('exams');
+  const [activeTab, setActiveTab] = useState<'exams' | 'marks' | 'hallAllocation'>('exams');
   const [isAddExamOpen, setIsAddExamOpen] = useState(false);
   const [isAddMarkOpen, setIsAddMarkOpen] = useState(false);
+  const [isAddAllocOpen, setIsAddAllocOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [editingMark, setEditingMark] = useState<ExamMark | null>(null);
+  const [editingAlloc, setEditingAlloc] = useState<any | null>(null);
   const [viewingMark, setViewingMark] = useState<ExamMark | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; target: 'exams' | 'examMarks'; permanent: boolean } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; target: 'exams' | 'examMarks' | 'hallAllocations'; permanent: boolean } | null>(null);
+
+  const [hallAllocations, setHallAllocations] = useState<any[]>([
+    {
+      id: 'alloc-1',
+      examName: 'Mid Term Examinations 2026',
+      hallNo: 'Hall 101 (Main Block)',
+      staffName: 'Dr. S. Ramanathan',
+      date: '2026-09-15',
+      session: 'Forenoon (09:30 AM - 12:30 PM)',
+      className: '10th A',
+      status: 'Assigned',
+      remarks: 'Chief Invigilator',
+    },
+    {
+      id: 'alloc-2',
+      examName: 'Mid Term Examinations 2026',
+      hallNo: 'Hall 102 (Science Wing)',
+      staffName: 'K. Meenakshi',
+      date: '2026-09-15',
+      session: 'Forenoon (09:30 AM - 12:30 PM)',
+      className: '10th B',
+      status: 'Assigned',
+      remarks: 'Assistant Invigilator',
+    },
+    {
+      id: 'alloc-3',
+      examName: 'Quarterly Examinations 2026',
+      hallNo: 'Auditorium Hall A',
+      staffName: 'M. Vijayakumar',
+      date: '2026-09-16',
+      session: 'Afternoon (01:30 PM - 04:30 PM)',
+      className: '12th A',
+      status: 'Assigned',
+      remarks: 'Superintendent',
+    },
+  ]);
 
   React.useEffect(() => {
     fetch('/api/exams', { cache: 'no-store' })
@@ -121,6 +160,89 @@ export default function ExaminationsPage() {
     { name: 'maxMarks', label: 'Maximum Marks', type: 'number', required: true },
     { name: 'grade', label: 'Grade (e.g. A1, A2, B1)', type: 'text', required: true },
     { name: 'remarks', label: 'Teacher Evaluation Remarks', type: 'textarea', colSpan: 2 },
+  ];
+
+  const staffOptions = staff.map((st) => ({ label: `${st.name} (${st.role || 'Teacher'})`, value: st.name }));
+
+  const allocationFields: FieldConfig[] = [
+    {
+      name: 'examName',
+      label: 'Scheduled Examination *',
+      type: 'select',
+      required: true,
+      options: exams.map((e) => ({ label: e.name, value: e.name })),
+    },
+    {
+      name: 'hallNo',
+      label: 'Exam Room / Hall Number *',
+      type: 'text',
+      required: true,
+      placeholder: 'e.g. Hall 101, Science Block Room 3, Auditorium A',
+    },
+    {
+      name: 'staffName',
+      label: 'Assigned Invigilator (Staff Name) *',
+      type: 'select',
+      required: true,
+      options: staffOptions.length > 0 ? staffOptions : [{ label: 'Dr. S. Ramanathan (Teacher)', value: 'Dr. S. Ramanathan' }],
+    },
+    { name: 'date', label: 'Duty Date *', type: 'date', required: true },
+    {
+      name: 'session',
+      label: 'Session / Shift *',
+      type: 'select',
+      required: true,
+      options: [
+        { label: 'Forenoon (09:30 AM - 12:30 PM)', value: 'Forenoon (09:30 AM - 12:30 PM)' },
+        { label: 'Afternoon (01:30 PM - 04:30 PM)', value: 'Afternoon (01:30 PM - 04:30 PM)' },
+      ],
+    },
+    {
+      name: 'className',
+      label: 'Allocated Class & Section *',
+      type: 'text',
+      required: true,
+      placeholder: 'e.g. 10th A, 12th B',
+    },
+    {
+      name: 'status',
+      label: 'Allocation Status',
+      type: 'select',
+      options: [
+        { label: 'Assigned', value: 'Assigned' },
+        { label: 'Completed', value: 'Completed' },
+        { label: 'Substituted', value: 'Substituted' },
+      ],
+    },
+    { name: 'remarks', label: 'Special Invigilation Duty / Remarks', type: 'text' },
+  ];
+
+  const allocationColumns: Column<any>[] = [
+    { key: 'hallNo', header: 'Room / Hall No', sortable: true, render: (a) => <span className="font-bold text-slate-800 dark:text-slate-100">{a.hallNo}</span> },
+    { key: 'staffName', header: 'Assigned Invigilator', sortable: true, render: (a) => <span className="font-bold text-blue-600 dark:text-blue-400">{a.staffName}</span> },
+    { key: 'examName', header: 'Exam Schedule', sortable: true },
+    { key: 'className', header: 'Target Class', sortable: true },
+    { key: 'date', header: 'Date', sortable: true },
+    { key: 'session', header: 'Session Shift' },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      render: (a) => (
+        <span
+          className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+            a.status === 'Completed'
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+              : a.status === 'Substituted'
+              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+              : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+          }`}
+        >
+          {a.status}
+        </span>
+      ),
+    },
+    { key: 'remarks', header: 'Duty Remarks' },
   ];
 
   const examColumns: Column<Exam>[] = [
@@ -288,10 +410,31 @@ export default function ExaminationsPage() {
     );
   };
 
+  const handleSaveAllocation = (data: Record<string, any>, saveAndNew?: boolean) => {
+    if (editingAlloc) {
+      setHallAllocations((prev) => prev.map((item) => (item.id === editingAlloc.id ? { ...item, ...data } : item)));
+      setEditingAlloc(null);
+    } else {
+      const newAlloc = {
+        id: `alloc-${Date.now()}`,
+        examName: data.examName || 'Mid Term Examinations 2026',
+        hallNo: data.hallNo || 'Hall 101',
+        staffName: data.staffName || 'Invigilator Staff',
+        date: data.date || new Date().toISOString().split('T')[0],
+        session: data.session || 'Forenoon (09:30 AM - 12:30 PM)',
+        className: data.className || '10th A',
+        status: data.status || 'Assigned',
+        remarks: data.remarks || 'Invigilation duty',
+      };
+      setHallAllocations((prev) => [newAlloc, ...prev]);
+      if (!saveAndNew) setIsAddAllocOpen(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Tab Switcher */}
-      <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit text-xs font-bold">
+      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit text-xs font-bold">
         <button
           onClick={() => setActiveTab('exams')}
           className={`px-4 py-2 rounded-xl transition-all ${
@@ -307,6 +450,14 @@ export default function ExaminationsPage() {
           }`}
         >
           Marks, Grades & Report Cards
+        </button>
+        <button
+          onClick={() => setActiveTab('hallAllocation')}
+          className={`px-4 py-2 rounded-xl transition-all ${
+            activeTab === 'hallAllocation' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Exam Hall Allocation for Staff
         </button>
       </div>
 
@@ -354,7 +505,7 @@ export default function ExaminationsPage() {
           onImportClick={() => setIsImportOpen(true)}
           onAuditLogsClick={() => setIsAuditOpen(true)}
         />
-      ) : (
+      ) : activeTab === 'marks' ? (
         <DataTable
           title="Marks, Grades & Report Cards"
           subtitle="Subject-wise Evaluation Scores & Automatic Grade Dossiers"
@@ -379,6 +530,32 @@ export default function ExaminationsPage() {
           onBulkDelete={(ids, soft) => bulkDeleteRecords('examMarks', ids, soft)}
           onImportClick={() => setIsImportOpen(true)}
           onAuditLogsClick={() => setIsAuditOpen(true)}
+        />
+      ) : (
+        <DataTable
+          title="Exam Hall Allocation for Staff"
+          subtitle="Invigilation Room Duties, Shift Schedules & Staff Duty Allocations"
+          icon={<GraduationCap className="w-6 h-6" />}
+          columns={allocationColumns}
+          data={hallAllocations}
+          addLabel="Allocate Hall Duty"
+          exportFilename="ABS_Exam_Hall_Staff_Allocations"
+          filterOptions={[
+            {
+              key: 'status',
+              label: 'Status',
+              options: [
+                { label: 'Assigned', value: 'Assigned' },
+                { label: 'Completed', value: 'Completed' },
+                { label: 'Substituted', value: 'Substituted' },
+              ],
+            },
+          ]}
+          onAddClick={() => setIsAddAllocOpen(true)}
+          onEditClick={(a) => setEditingAlloc(a)}
+          onSoftDeleteClick={(a) => setConfirmDelete({ id: a.id, name: `${a.staffName} (${a.hallNo})`, target: 'hallAllocations', permanent: false })}
+          onPermanentDeleteClick={(a) => setConfirmDelete({ id: a.id, name: `${a.staffName} (${a.hallNo})`, target: 'hallAllocations', permanent: true })}
+          onBulkDelete={(ids) => setHallAllocations((prev) => prev.filter((item) => !ids.includes(item.id)))}
         />
       )}
 
@@ -406,6 +583,19 @@ export default function ExaminationsPage() {
         fields={markFields}
         initialData={editingMark ? { ...editingMark } : null}
         onSave={handleSaveMark}
+      />
+
+      {/* Add / Edit Exam Hall Allocation Modal */}
+      <CrudModal
+        isOpen={isAddAllocOpen || Boolean(editingAlloc)}
+        onClose={() => {
+          setIsAddAllocOpen(false);
+          setEditingAlloc(null);
+        }}
+        title="Exam Hall Allocation for Staff"
+        fields={allocationFields}
+        initialData={editingAlloc ? { ...editingAlloc } : null}
+        onSave={handleSaveAllocation}
       />
 
       {/* Import Modal */}

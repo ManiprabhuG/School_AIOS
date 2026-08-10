@@ -39,6 +39,11 @@ Thumbs.db
 # Vercel
 .vercel
 
+# Markdown documentation files (except README.md)
+*.md
+!README.md
+Markdown/
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts

@@ -7,6 +7,7 @@ import KPICards from '@/components/dashboard/KPICards';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import DashboardWidgets from '@/components/dashboard/DashboardWidgets';
 import { useAuthStore } from '@/store/auth-store';
+import { canAccessModule } from '@/lib/permissions';
 import { UserPlus, CreditCard, Megaphone, FileSpreadsheet, Sparkles, School } from 'lucide-react';
 import Link from 'next/link';
 
@@ -33,30 +34,38 @@ export default function DashboardHome() {
 
           {/* Quick Actions */}
           <div className="flex flex-wrap gap-2.5">
-            <Link
-              href="/students"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-700 font-bold text-xs hover:bg-blue-50 transition-all shadow-md active:scale-95"
-            >
-              <UserPlus className="w-4 h-4" /> Add Student
-            </Link>
-            <Link
-              href="/fees"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-400/30 text-white font-bold text-xs hover:bg-sky-400/40 transition-all backdrop-blur-md border border-white/20 active:scale-95"
-            >
-              <CreditCard className="w-4 h-4" /> Collect Fee
-            </Link>
-            <Link
-              href="/announcements"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-400/30 text-white font-bold text-xs hover:bg-sky-400/40 transition-all backdrop-blur-md border border-white/20 active:scale-95"
-            >
-              <Megaphone className="w-4 h-4" /> Post Notice
-            </Link>
-            <Link
-              href="/reports"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-400/30 text-white font-bold text-xs hover:bg-sky-400/40 transition-all backdrop-blur-md border border-white/20 active:scale-95"
-            >
-              <FileSpreadsheet className="w-4 h-4" /> Reports
-            </Link>
+            {canAccessModule(activeRole, '/students') && (
+              <Link
+                href="/students"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-700 font-bold text-xs hover:bg-blue-50 transition-all shadow-md active:scale-95"
+              >
+                <UserPlus className="w-4 h-4" /> Add Student
+              </Link>
+            )}
+            {canAccessModule(activeRole, '/fees') && (
+              <Link
+                href="/fees"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-400/30 text-white font-bold text-xs hover:bg-sky-400/40 transition-all backdrop-blur-md border border-white/20 active:scale-95"
+              >
+                <CreditCard className="w-4 h-4" /> Collect Fee
+              </Link>
+            )}
+            {canAccessModule(activeRole, '/announcements') && (
+              <Link
+                href="/announcements"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-400/30 text-white font-bold text-xs hover:bg-sky-400/40 transition-all backdrop-blur-md border border-white/20 active:scale-95"
+              >
+                <Megaphone className="w-4 h-4" /> Post Notice
+              </Link>
+            )}
+            {canAccessModule(activeRole, '/reports') && (
+              <Link
+                href="/reports"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-400/30 text-white font-bold text-xs hover:bg-sky-400/40 transition-all backdrop-blur-md border border-white/20 active:scale-95"
+              >
+                <FileSpreadsheet className="w-4 h-4" /> Reports
+              </Link>
+            )}
           </div>
         </div>
 

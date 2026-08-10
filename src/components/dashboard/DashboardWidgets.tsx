@@ -12,10 +12,15 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useCrudStore } from '@/store/crud-store';
+import { useAuthStore } from '@/store/auth-store';
 import Link from 'next/link';
 
 export default function DashboardWidgets() {
+  const { activeRole } = useAuthStore();
   const { feePayments, exams } = useCrudStore();
+
+  const isExecutive = ['Super Admin', 'Admin', 'Principal', 'Vice Principal'].includes(activeRole);
+  const isFinanceRole = ['Accountant'].includes(activeRole) || isExecutive;
 
   const activeExams = exams.filter((ex: any) => !ex.isDeleted);
   const activeFeePayments = feePayments.filter((pay: any) => !pay.isDeleted);
@@ -97,39 +102,41 @@ export default function DashboardWidgets() {
       </div>
 
       {/* 3. Recent Fee Payments */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Recent Fee Collection</h3>
-          </div>
-          <Link href="/fees" className="text-xs font-semibold text-blue-600 hover:underline flex items-center">
-            Details <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-        <div className="space-y-3 flex-1">
-          {activeFeePayments.length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 italic">
-              No Fee Collections Recorded Yet
-            </div>
-          ) : (
-            activeFeePayments.slice(0, 5).map((pay: any) => (
-              <div key={pay.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{pay.studentName}</p>
-                  <p className="text-[11px] text-slate-500">{pay.receiptNo} • {pay.paymentMode}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(pay.amountPaid || pay.amount || 0)}</span>
-                  <span className="block text-[10px] text-slate-400">{formatDate(pay.paymentDate)}</span>
-                </div>
+      {isFinanceRole && (
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                <CreditCard className="w-5 h-5" />
               </div>
-            ))
-          )}
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Recent Fee Collection</h3>
+            </div>
+            <Link href="/fees" className="text-xs font-semibold text-blue-600 hover:underline flex items-center">
+              Details <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          <div className="space-y-3 flex-1">
+            {activeFeePayments.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 italic">
+                No Fee Collections Recorded Yet
+              </div>
+            ) : (
+              activeFeePayments.slice(0, 5).map((pay: any) => (
+                <div key={pay.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{pay.studentName}</p>
+                    <p className="text-[11px] text-slate-500">{pay.receiptNo} • {pay.paymentMode}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(pay.amountPaid || pay.amount || 0)}</span>
+                    <span className="block text-[10px] text-slate-400">{formatDate(pay.paymentDate)}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 4. Birthday List & School Calendar */}
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-4">

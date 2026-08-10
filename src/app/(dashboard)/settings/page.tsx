@@ -112,8 +112,18 @@ export default function SettingsPage() {
       .then((res) => res.json())
       .then((res) => {
         if (res.success && res.data) {
-          setProfileForm(res.data);
-          updateCompanyProfile(res.data);
+          setProfileForm((prev) => ({
+            ...prev,
+            ...res.data,
+            schoolLogo: res.data.schoolLogo || prev.schoolLogo || companyProfile.schoolLogo || '',
+          }));
+          updateCompanyProfile({
+            ...res.data,
+            schoolLogo: res.data.schoolLogo || companyProfile.schoolLogo || '',
+          });
+          if (res.data.theme) {
+            setTheme(res.data.theme as ThemeMode);
+          }
         }
       })
       .catch((err) => console.error('Failed to load cloud database settings:', err));
@@ -165,12 +175,16 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
-    updateCompanyProfile(profileForm);
+    const payload = {
+      ...profileForm,
+      theme,
+    };
+    updateCompanyProfile(payload);
     try {
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profileForm),
+        body: JSON.stringify(payload),
       });
     } catch (err) {
       console.error('Failed to save settings to cloud database:', err);

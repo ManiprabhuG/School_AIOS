@@ -152,7 +152,7 @@ export default function ReceiptTemplate({
       {/* Financial Totals Calculation */}
       <div className={`mt-4 p-3 rounded-lg bg-slate-950 text-white ${isThermal ? 'text-[10px] space-y-1' : 'w-72 ml-auto text-xs space-y-1.5 border-2 border-slate-950 shadow-sm'}`}>
         <div className="flex justify-between font-bold text-slate-100">
-          <span>Subtotal:</span>
+          <span>Total Fee Amount:</span>
           <span>₹{data.subtotal.toLocaleString('en-IN')}</span>
         </div>
 
@@ -171,13 +171,13 @@ export default function ReceiptTemplate({
         ) : null}
 
         <div className={`flex justify-between font-black border-t border-slate-700 pt-1 text-white ${isThermal ? 'text-xs' : 'text-sm'}`}>
-          <span>Total Paid:</span>
+          <span>Collected Fee Amount:</span>
           <span>₹{data.totalAmount.toLocaleString('en-IN')}</span>
         </div>
 
         {data.remainingBalance !== undefined && (
           <div className={`flex justify-between font-black pt-1 border-t border-slate-800 ${data.remainingBalance > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
-            <span>Pending Due Balance:</span>
+            <span>Pending Due Amount:</span>
             <span>{data.remainingBalance > 0 ? `₹${data.remainingBalance.toLocaleString('en-IN')}` : '₹0 (Nil)'}</span>
           </div>
         )}

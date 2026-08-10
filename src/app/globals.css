@@ -119,8 +119,8 @@ body {
 /* Print Optimization CSS Engine */
 @media print {
   @page {
-    size: portrait;
-    margin: 8mm 8mm 8mm 8mm;
+    size: auto;
+    margin: 10mm;
   }
 
   /* Force 100% exact background colors & text styles across all elements in browser print preview */
@@ -130,17 +130,20 @@ body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
+    text-shadow: none !important;
   }
 
   html,
   body {
     background-color: #ffffff !important;
     background: #ffffff !important;
-    color: #000000 !important;
+    color: #0f172a !important;
     margin: 0 !important;
     padding: 0 !important;
     height: auto !important;
     overflow: visible !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
   }
 
   /* Hide Non-printable UI Navigation, Sidebars, Headers, Footers, Modal Toolbars */
@@ -183,14 +186,24 @@ body {
   .print-area > div {
     min-height: auto !important;
     box-shadow: none !important;
-    border: 1px solid #000000 !important;
-    border-radius: 12px !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
     margin: 0 auto !important;
     width: 100% !important;
     max-width: 100% !important;
     background: #ffffff !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    color: #000000 !important;
+    border-color: #000000 !important;
   }
 
   /* Page Breaks */

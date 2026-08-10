@@ -11,7 +11,7 @@ import { CrudModal, FieldConfig } from '@/components/crud/CrudModal';
 import { ImportModal } from '@/components/crud/ImportModal';
 import { AuditLogViewer } from '@/components/crud/AuditLogViewer';
 import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
-import { CalendarCheck } from 'lucide-react';
+import { CalendarCheck, Calendar as CalendarIcon, Table as TableIcon, ChevronLeft, ChevronRight, Plus, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
 
 export default function AttendancePage() {
   const router = useRouter();
@@ -92,6 +92,11 @@ export default function AttendancePage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
 
   const [currentEntityTypeFilter, setCurrentEntityTypeFilter] = useState<string>('Student');
+
+  // Calendar View State
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
 
   const attendanceFields: FieldConfig[] = [
     {
@@ -361,49 +366,243 @@ export default function AttendancePage() {
     }
   };
 
+  // Calendar Grid Calculations
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthName = calendarDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+  const prevMonth = () => setCalendarDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setCalendarDate(new Date(year, month + 1, 1));
+  const todayMonth = () => setCalendarDate(new Date());
+
+  const calendarDays = useMemo(() => {
+    const days = [];
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const recs = attendanceRecords.filter((r) => r.date === dateStr && !r.isDeleted);
+      const presentCount = recs.filter((r) => r.status === 'Present').length;
+      const absentCount = recs.filter((r) => r.status === 'Absent').length;
+      const lateLeaveCount = recs.filter((r) => r.status === 'Late' || r.status === 'Leave' || r.status === 'Half Day').length;
+
+      days.push({
+        dayNumber: d,
+        dateStr,
+        records: recs,
+        presentCount,
+        absentCount,
+        lateLeaveCount,
+      });
+    }
+    return days;
+  }, [year, month, firstDay, totalDaysInMonth, attendanceRecords]);
+
   return (
     <div className="space-y-6">
-      <DataTable
-        title="Student & Staff Attendance Register"
-        subtitle="Daily Attendance Marking, Late Check-Ins, Leave Submissions & Muster Roll"
-        icon={<CalendarCheck className="w-6 h-6" />}
-        columns={columns}
-        data={attendanceRecords}
-        addLabel="Mark Attendance Entry"
-        exportFilename="ABS_Attendance_Register"
-        filterOptions={dynamicFilterOptions}
-        onFilterChange={handleFilterChange}
-        statusUpdateOptions={{
-          field: 'status',
-          label: 'Attendance Status',
-          values: ['Present', 'Absent', 'Late', 'Half Day', 'Leave'],
-        }}
-        onAddClick={() => setIsAddModalOpen(true)}
-        onEditClick={(a) => setEditingAtt(a)}
-        onSoftDeleteClick={(a) =>
-          setAttendanceRecords((prev) => prev.map((item) => (item.id === a.id ? { ...item, isDeleted: true } : item)))
-        }
-        onRestoreClick={(a) =>
-          setAttendanceRecords((prev) => prev.map((item) => (item.id === a.id ? { ...item, isDeleted: false } : item)))
-        }
-        onPermanentDeleteClick={(a) => setConfirmDelete({ id: a.id, name: a.name, permanent: true })}
-        onBulkDelete={(ids, soft) => {
-          if (soft) {
-            setAttendanceRecords((prev) =>
-              prev.map((item) => (ids.includes(item.id) ? { ...item, isDeleted: true } : item))
-            );
-          } else {
-            setAttendanceRecords((prev) => prev.filter((item) => !ids.includes(item.id)));
+      {/* Mode Switcher Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 font-extrabold">
+            <CalendarCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
+              Attendance Register & Monthly Calendar
+            </h2>
+            <p className="text-xs text-slate-500">Real-time attendance tracking for Students & Staff</p>
+          </div>
+        </div>
+
+        {/* View Switcher Toggle */}
+        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+              viewMode === 'table'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <TableIcon className="w-4 h-4" /> Table Register
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+              viewMode === 'calendar'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <CalendarIcon className="w-4 h-4" /> Interactive Calendar View
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'table' ? (
+        <DataTable
+          title="Student & Staff Attendance Register"
+          subtitle="Daily Attendance Marking, Late Check-Ins, Leave Submissions & Muster Roll"
+          icon={<CalendarCheck className="w-6 h-6" />}
+          columns={columns}
+          data={attendanceRecords}
+          addLabel="Mark Attendance Entry"
+          exportFilename="ABS_Attendance_Register"
+          filterOptions={dynamicFilterOptions}
+          onFilterChange={handleFilterChange}
+          statusUpdateOptions={{
+            field: 'status',
+            label: 'Attendance Status',
+            values: ['Present', 'Absent', 'Late', 'Half Day', 'Leave'],
+          }}
+          onAddClick={() => setIsAddModalOpen(true)}
+          onEditClick={(a) => setEditingAtt(a)}
+          onSoftDeleteClick={(a) =>
+            setAttendanceRecords((prev) => prev.map((item) => (item.id === a.id ? { ...item, isDeleted: true } : item)))
           }
-        }}
-        onBulkStatusUpdate={(ids, field, val) => {
-          setAttendanceRecords((prev) =>
-            prev.map((item) => (ids.includes(item.id) ? { ...item, [field]: val } : item))
-          );
-        }}
-        onImportClick={() => setIsImportOpen(true)}
-        onAuditLogsClick={() => setIsAuditOpen(true)}
-      />
+          onRestoreClick={(a) =>
+            setAttendanceRecords((prev) => prev.map((item) => (item.id === a.id ? { ...item, isDeleted: false } : item)))
+          }
+          onPermanentDeleteClick={(a) => setConfirmDelete({ id: a.id, name: a.name, permanent: true })}
+          onBulkDelete={(ids, soft) => {
+            if (soft) {
+              setAttendanceRecords((prev) =>
+                prev.map((item) => (ids.includes(item.id) ? { ...item, isDeleted: true } : item))
+              );
+            } else {
+              setAttendanceRecords((prev) => prev.filter((item) => !ids.includes(item.id)));
+            }
+          }}
+          onBulkStatusUpdate={(ids, field, val) => {
+            setAttendanceRecords((prev) =>
+              prev.map((item) => (ids.includes(item.id) ? { ...item, [field]: val } : item))
+            );
+          }}
+          onImportClick={() => setIsImportOpen(true)}
+          onAuditLogsClick={() => setIsAuditOpen(true)}
+        />
+      ) : (
+        /* Calendar View Section */
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
+          {/* Calendar Header Navigation */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white capitalize">{monthName}</h3>
+              <button
+                onClick={todayMonth}
+                className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-100"
+              >
+                Today
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={prevMonth}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={nextMonth}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="ml-2 px-3 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center gap-1.5 hover:bg-blue-700 shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> Mark Attendance
+              </button>
+            </div>
+          </div>
+
+          {/* Legend Bar */}
+          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-600 dark:text-slate-400">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> Present</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-rose-500" /> Absent</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500" /> Late / Leave</span>
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-2 text-center">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+              <div key={d} className="py-2 font-extrabold text-xs text-slate-400 uppercase tracking-wider">
+                {d}
+              </div>
+            ))}
+
+            {calendarDays.map((cd, index) => {
+              if (!cd) {
+                return <div key={`empty-${index}`} className="h-24 rounded-2xl bg-slate-50/40 dark:bg-slate-800/20" />;
+              }
+
+              const isToday = cd.dateStr === new Date().toISOString().split('T')[0];
+
+              return (
+                <div
+                  key={cd.dateStr}
+                  onClick={() => {
+                    setSelectedCalendarDate(cd.dateStr);
+                    setEditingAtt({
+                      id: '',
+                      date: cd.dateStr,
+                      entityId: '',
+                      entityType: 'Student',
+                      name: '',
+                      status: 'Present',
+                    });
+                    setIsAddModalOpen(true);
+                  }}
+                  className={`h-24 p-2 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between hover:shadow-md ${
+                    isToday
+                      ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-950/20 ring-2 ring-blue-500/20'
+                      : 'border-slate-200/70 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-xs font-black w-6 h-6 rounded-full flex items-center justify-center ${
+                        isToday ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-200'
+                      }`}
+                    >
+                      {cd.dayNumber}
+                    </span>
+                    {cd.records.length > 0 && (
+                      <span className="text-[10px] font-bold text-slate-400">{cd.records.length} recs</span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 mt-1 text-[10px]">
+                    {cd.presentCount > 0 && (
+                      <div className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold flex justify-between">
+                        <span>P</span>
+                        <span>{cd.presentCount}</span>
+                      </div>
+                    )}
+                    {cd.absentCount > 0 && (
+                      <div className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-extrabold flex justify-between">
+                        <span>A</span>
+                        <span>{cd.absentCount}</span>
+                      </div>
+                    )}
+                    {cd.lateLeaveCount > 0 && (
+                      <div className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-extrabold flex justify-between">
+                        <span>L</span>
+                        <span>{cd.lateLeaveCount}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Add / Edit Modal */}
       <CrudModal

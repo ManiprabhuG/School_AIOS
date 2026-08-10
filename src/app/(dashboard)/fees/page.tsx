@@ -100,7 +100,8 @@ export default function FeesPage() {
       ),
     },
 
-    { name: 'amount', label: 'Collected Amount (₹)', type: 'number', placeholder: '0' },
+    { name: 'totalAmount', label: 'Total Fee Amount (₹)', type: 'number', placeholder: 'Auto-calculated from class fee structure', readOnly: true },
+    { name: 'amount', label: 'Collected Fee Amount (₹)', type: 'number', placeholder: 'Enter collected amount' },
     {
       name: 'feeCategory',
       label: 'Fee Category',

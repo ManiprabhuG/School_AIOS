@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useCrudStore } from '@/store/crud-store';
+import { useAuthStore } from '@/store/auth-store';
 
 interface KPICardData {
   title: string;
@@ -34,6 +35,7 @@ interface KPICardData {
 }
 
 export default function KPICards() {
+  const { activeRole } = useAuthStore();
   const {
     students,
     staff,
@@ -104,7 +106,7 @@ export default function KPICards() {
     .filter((t) => t.date === todayStr && t.debit > 0)
     .reduce((sum, t) => sum + t.debit, 0);
 
-  const kpiData: KPICardData[] = [
+  const allKpiData: KPICardData[] = [
     { title: 'Available School Funds', value: formatCurrency(totalAvailableFunds), change: `${activeFinancialAccounts.length} fund accounts`, isPositive: true, icon: Landmark, color: 'from-blue-600 to-indigo-700' },
     { title: 'Cash In Hand', value: formatCurrency(cashInHand), change: 'Physical Cash Balance', isPositive: true, icon: DollarSign, color: 'from-amber-500 to-emerald-600' },
     { title: 'Bank Account Balances', value: formatCurrency(bankFunds), change: 'Central Bank Balances', isPositive: true, icon: Building2, color: 'from-indigo-500 to-sky-600' },
@@ -124,6 +126,32 @@ export default function KPICards() {
     { title: 'Purchase Orders', value: `${activePurchases.length} Orders`, change: 'Total POs', isPositive: true, icon: ShoppingBag, color: 'from-violet-600 to-purple-700' },
     { title: 'Announcements', value: `${activeAnnouncements.length} Active`, change: activeAnnouncements.length > 0 ? 'Published notices' : 'No announcements', isPositive: true, icon: Megaphone, color: 'from-rose-500 to-pink-600' },
   ];
+
+  // Role-specific card filtering
+  const kpiData = allKpiData.filter((card) => {
+    if (activeRole === 'Super Admin' || activeRole === 'Admin' || activeRole === 'Principal' || activeRole === 'Vice Principal') {
+      return true;
+    }
+    if (activeRole === 'Teacher') {
+      return ['Total Students', 'Boys', 'Girls', 'Total Staff', 'Teaching Staff', 'Exams Scheduled', 'Announcements'].includes(card.title);
+    }
+    if (activeRole === 'Accountant') {
+      return ['Available School Funds', 'Cash In Hand', 'Bank Account Balances', "Today's Collection", "Today's Expense", 'Total Students', 'Fee Collection', 'Pending Fees', 'Suppliers', 'Purchase Orders'].includes(card.title);
+    }
+    if (activeRole === 'HR') {
+      return ['Total Staff', 'Teaching Staff', 'Total Students', 'Boys', 'Girls', 'Announcements'].includes(card.title);
+    }
+    if (activeRole === 'Transport Manager') {
+      return ['Buses Running', 'Total Students', 'Announcements'].includes(card.title);
+    }
+    if (activeRole === 'Inventory Manager') {
+      return ['Inventory Items', 'Purchase Orders', 'Suppliers', 'Announcements'].includes(card.title);
+    }
+    if (activeRole === 'Parent' || activeRole === 'Student') {
+      return ['Total Students', 'Exams Scheduled', 'Announcements'].includes(card.title);
+    }
+    return ['Total Students', 'Exams Scheduled', 'Announcements'].includes(card.title);
+  });
 
 
   return (
