@@ -82,19 +82,22 @@ export default function StaffAllocationPage() {
 
   // Initialize per-staff class & section state from staff list
   useEffect(() => {
-    const initialAlloc: Record<string, { className: string; section: string }> = {};
-    staff.forEach((stf) => {
-      const isNonTeaching = isNonTeachingStaff(stf);
-      if (isNonTeaching) {
-        initialAlloc[stf.id] = { className: 'None', section: 'None' };
-      } else {
-        const parts = (stf.allocatedClass || '10th A').split(' ');
-        const cls = parts[0] || '10th';
-        const sec = parts[1] || 'A';
-        initialAlloc[stf.id] = { className: cls, section: sec };
-      }
+    setAllocations((prev) => {
+      const nextAlloc: Record<string, { className: string; section: string }> = { ...prev };
+      staff.forEach((stf) => {
+        const isNonTeaching = isNonTeachingStaff(stf);
+        if (isNonTeaching) {
+          nextAlloc[stf.id] = { className: 'None', section: 'None' };
+        } else if (!nextAlloc[stf.id]) {
+          const rawClass = stf.allocatedClass || (stf as any).assignedClass || '';
+          const parts = rawClass ? rawClass.split(' ') : [];
+          const cls = parts[0] || '10th';
+          const sec = parts[1] || 'A';
+          nextAlloc[stf.id] = { className: cls, section: sec };
+        }
+      });
+      return nextAlloc;
     });
-    setAllocations(initialAlloc);
   }, [staff]);
 
   const handleClassChange = (staffId: string, newClass: string) => {
@@ -128,25 +131,26 @@ export default function StaffAllocationPage() {
         : allocatedSection && allocatedSection !== 'None'
         ? `${allocatedClass} ${allocatedSection}`
         : allocatedClass;
-    updateRecord('staff', staffId, {
+
+    const payload = {
+      id: staffId,
       allocatedClass: combinedClass,
+      assignedClass: combinedClass,
       subjects,
       busRouteHandled: busRouteHandled === 'None' ? undefined : busRouteHandled,
-    });
+    };
 
-    // Also call live backend update if API exists
-    fetch(`/api/staff/${staffId}`, {
+    updateRecord('staff', staffId, payload);
+
+    // Call live backend PUT API /api/staff to save directly to MySQL database
+    fetch('/api/staff', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        allocatedClass: combinedClass,
-        subjects,
-        busRouteHandled: busRouteHandled === 'None' ? null : busRouteHandled,
-      }),
-    }).catch(() => {});
+      body: JSON.stringify(payload),
+    }).catch((err) => console.error('Failed to update staff allocation in DB:', err));
 
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 2500);
   };
 
   const filteredStaff = staff.filter((stf) => {

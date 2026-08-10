@@ -16,6 +16,8 @@ export async function GET() {
         ...s,
         empId: s.employeeId || (s as any).empId || 'EMP-001',
         status: s.status === 'ACTIVE' ? 'Active' : s.status === 'INACTIVE' ? 'Inactive' : s.status,
+        allocatedClass: s.assignedClass || (s as any).allocatedClass || '10th A',
+        subjects: s.subjectSpecial ? s.subjectSpecial.split(',').map((item) => item.trim()) : (s as any).subjects || [],
       }));
 
       return NextResponse.json({ success: true, data: mappedStaff });
@@ -47,8 +49,8 @@ export async function POST(request: Request) {
       gender: String(body.gender || 'Male'),
       address: String(body.address || 'Address Details'),
       photo: body.photo || null,
-      assignedClass: body.assignedClass || null,
-      subjectSpecial: body.subjectSpecial || null,
+      assignedClass: body.assignedClass || body.allocatedClass || null,
+      subjectSpecial: Array.isArray(body.subjects) ? body.subjects.join(', ') : body.subjectSpecial || null,
       status: body.status === 'Inactive' ? 'INACTIVE' : 'ACTIVE',
     };
 
@@ -61,6 +63,8 @@ export async function POST(request: Request) {
         ...created,
         empId: created.employeeId,
         status: created.status === 'ACTIVE' ? 'Active' : 'Inactive',
+        allocatedClass: created.assignedClass || '10th A',
+        subjects: created.subjectSpecial ? created.subjectSpecial.split(',').map((i) => i.trim()) : [],
       };
 
       return NextResponse.json({ success: true, data: mapped }, { status: 201 });
@@ -83,15 +87,20 @@ export async function PUT(request: Request) {
 
     const dbUpdates: any = { ...updates };
     if (empId) dbUpdates.employeeId = empId;
+    if (updates.allocatedClass) dbUpdates.assignedClass = updates.allocatedClass;
+    if (updates.subjects) dbUpdates.subjectSpecial = Array.isArray(updates.subjects) ? updates.subjects.join(', ') : updates.subjects;
     if (dbUpdates.status === 'Active') dbUpdates.status = 'ACTIVE';
     if (dbUpdates.status === 'Inactive') dbUpdates.status = 'INACTIVE';
 
     if (isDbConnected()) {
-      await db.staff.update({
-        where: { id },
-        data: dbUpdates,
-      });
-      return NextResponse.json({ success: true });
+      try {
+        await db.staff.update({
+          where: { id },
+          data: dbUpdates,
+        });
+      } catch (dbErr) {
+        console.error('Failed to update staff in DB:', dbErr);
+      }
     }
 
     const store = useCrudStore.getState();

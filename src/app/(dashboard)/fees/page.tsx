@@ -489,30 +489,47 @@ export default function FeesPage() {
     const updates: Record<string, any> = {};
 
     let targetClass = currentData.className;
+    let selectedStudent = students.find((s) => s.name === currentData.studentName);
+
     if (changedField === 'studentName' && newValue) {
       const std = students.find((s) => s.name === newValue);
-      if (std?.className) {
-        targetClass = std.className;
-        updates.className = std.className;
+      if (std) {
+        selectedStudent = std;
+        if (std.className) {
+          targetClass = std.className;
+          updates.className = std.className;
+        }
       }
     } else if (changedField === 'className' && newValue) {
       targetClass = newValue;
     }
 
-    const category: string = String(currentData.feeCategory || 'Annual');
+    const category: string = String(changedField === 'feeCategory' ? newValue : currentData.feeCategory || 'Annual');
     const fs = getFeeStructureForClass(targetClass || updates.className, feeStructures);
 
+    // Calculate Standard Total Fee Amount for selected class & category (auto-populated read-only field)
+    let categoryTotal = 42000;
     if (fs) {
-      if (category === 'Annual' || category === 'Annual Fee') updates.amount = fs.totalAnnualFee;
-      else if (category === 'Tuition') updates.amount = fs.tuitionFee;
-      else if (category === 'Admission') updates.amount = fs.admissionFee;
-      else if (category === 'Transport') updates.amount = fs.transportFee;
-      else if (category === 'Uniform') updates.amount = fs.uniformFee;
-      else if (category === 'Lab') updates.amount = fs.labFee;
-      else if (category === 'Exam' || category === 'Books' || category === 'Other') {
-        if (!currentData.amount || currentData.amount === fs.totalAnnualFee) {
-          updates.amount = 0;
-        }
+      if (category === 'Annual' || category === 'Annual Fee') categoryTotal = fs.totalAnnualFee || 42000;
+      else if (category === 'Tuition') categoryTotal = fs.tuitionFee || 35000;
+      else if (category === 'Admission') categoryTotal = fs.admissionFee || 5000;
+      else if (category === 'Transport') categoryTotal = fs.transportFee || 12000;
+      else if (category === 'Uniform') categoryTotal = fs.uniformFee || 3500;
+      else if (category === 'Lab') categoryTotal = fs.labFee || 2500;
+      else if (category === 'Exam') categoryTotal = 1500;
+      else if (category === 'Books') categoryTotal = 4500;
+      else categoryTotal = Number(currentData.totalAmount) || 42000;
+    } else if (selectedStudent?.totalFees) {
+      categoryTotal = selectedStudent.totalFees;
+    }
+
+    // Always populate Total Fee Amount field (read-only)
+    updates.totalAmount = categoryTotal;
+
+    // Only set default Collected Fee Amount if amount field is currently empty
+    if (changedField === 'studentName' || changedField === 'className' || changedField === 'feeCategory') {
+      if (!currentData.amount) {
+        updates.amount = categoryTotal;
       }
     }
 
