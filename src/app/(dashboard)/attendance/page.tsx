@@ -39,7 +39,7 @@ export default function AttendancePage() {
         if (user?.id && s.id === user.id) return true;
         if (user?.email && s.email?.trim().toLowerCase() === user.email.trim().toLowerCase()) return true;
         if (user?.name && s.name?.trim().toLowerCase() === user.name.trim().toLowerCase()) return true;
-        if (user?.username && (s.employeeId === user.username || s.email?.toLowerCase().includes(user.username.toLowerCase()))) return true;
+        if (user?.username && (s.empId === user.username || (s as any).employeeId === user.username || s.email?.toLowerCase().includes(user.username.toLowerCase()))) return true;
         return false;
       }) || staff.find((s) => s.role === 'Teacher');
 
