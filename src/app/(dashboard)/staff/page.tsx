@@ -173,6 +173,8 @@ export default function StaffManagementPage() {
       firstName: first,
       lastName: last,
       name: fullName,
+      username: usernameVal,
+      password: pwdVal,
     };
 
     if (editingStaff) {
@@ -194,12 +196,8 @@ export default function StaffManagementPage() {
           body: JSON.stringify({ id: editingStaff.id, ...payload }),
         });
         const resJson = await res.json();
-        if (resJson.success) {
-          const freshRes = await fetch('/api/staff', { cache: 'no-store' });
-          const freshData = await freshRes.json();
-          if (freshData.success && Array.isArray(freshData.data)) {
-            useCrudStore.setState({ staff: freshData.data });
-          }
+        if (resJson.success && resJson.data) {
+          updateRecord('staff', editingStaff.id, resJson.data);
         }
       } catch (err) {
         console.error('Failed to update staff in database:', err);

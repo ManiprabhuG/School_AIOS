@@ -265,7 +265,15 @@ export function CrudModal({
       fields.forEach((f) => {
         if (f.defaultValue !== undefined) {
           defaults[f.name] = f.defaultValue;
-        } else if (f.name === 'id' || f.name.toLowerCase().endsWith('id') || f.name.toLowerCase().endsWith('no') || f.name.toLowerCase().endsWith('number') || f.name.toLowerCase().endsWith('code')) {
+        } else if (
+          f.name !== 'username' &&
+          f.name !== 'password' &&
+          (f.name === 'id' ||
+            f.name.toLowerCase().endsWith('id') ||
+            f.name.toLowerCase().endsWith('no') ||
+            f.name.toLowerCase().endsWith('number') ||
+            f.name.toLowerCase().endsWith('code'))
+        ) {
           defaults[f.name] = generateAutoId(f.name);
         } else if (f.type === 'number') {
           defaults[f.name] = '';
@@ -295,7 +303,7 @@ export function CrudModal({
     if (saveAndNew) {
       const defaults: Record<string, any> = {};
       fields.forEach((f) => {
-        if (f.name === 'id' || f.name.toLowerCase().endsWith('id')) defaults[f.name] = generateAutoId(f.name);
+        if (f.name !== 'username' && f.name !== 'password' && (f.name === 'id' || f.name.toLowerCase().endsWith('id'))) defaults[f.name] = generateAutoId(f.name);
         else if (f.type === 'number') defaults[f.name] = '';
         else if (f.type === 'date') defaults[f.name] = new Date().toISOString().slice(0, 10);
         else if (f.type === 'select' && f.options && f.options.length > 0) defaults[f.name] = f.options[0].value;

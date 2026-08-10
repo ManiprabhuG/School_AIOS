@@ -115,6 +115,8 @@ model Staff {
   photo          String?
   assignedClass  String?
   subjectSpecial String?
+  username       String?
+  password       String?
   status         String   @default("ACTIVE")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

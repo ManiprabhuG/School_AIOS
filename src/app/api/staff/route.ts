@@ -15,6 +15,8 @@ export async function GET() {
       const mappedStaff = dbStaff.map((s) => ({
         ...s,
         empId: s.employeeId || (s as any).empId || 'EMP-001',
+        username: s.username || s.email?.split('@')[0] || s.employeeId || 'staff',
+        password: s.password || `${s.username || s.email?.split('@')[0] || 'staff'}123`,
         status: s.status === 'ACTIVE' ? 'Active' : s.status === 'INACTIVE' ? 'Inactive' : s.status,
         allocatedClass: s.assignedClass || (s as any).allocatedClass || '10th A',
         subjects: s.subjectSpecial ? s.subjectSpecial.split(',').map((item) => item.trim()) : (s as any).subjects || [],
@@ -32,6 +34,9 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const usernameVal = body.username || body.email?.split('@')[0] || body.firstName?.toLowerCase() || 'staff';
+    const pwdVal = body.password || `${usernameVal}123`;
+
     const staffData = {
       id: body.id || `stf-${Date.now()}`,
       employeeId: body.empId || body.employeeId || `EMP-2026-${Date.now().toString().slice(-4)}`,
@@ -51,6 +56,8 @@ export async function POST(request: Request) {
       photo: body.photo || null,
       assignedClass: body.assignedClass || body.allocatedClass || null,
       subjectSpecial: Array.isArray(body.subjects) ? body.subjects.join(', ') : body.subjectSpecial || null,
+      username: usernameVal,
+      password: pwdVal,
       status: body.status === 'Inactive' ? 'INACTIVE' : 'ACTIVE',
     };
 
@@ -59,9 +66,38 @@ export async function POST(request: Request) {
         data: staffData as any,
       });
 
+      // Upsert User account in DB
+      try {
+        await db.user.upsert({
+          where: { email: staffData.email },
+          update: {
+            username: usernameVal,
+            name: staffData.name,
+            passwordHash: pwdVal,
+            role: staffData.role as any,
+            phone: staffData.phone,
+            status: staffData.status,
+          },
+          create: {
+            id: staffData.id,
+            username: usernameVal,
+            name: staffData.name,
+            email: staffData.email,
+            passwordHash: pwdVal,
+            role: staffData.role as any,
+            phone: staffData.phone,
+            status: staffData.status,
+          },
+        });
+      } catch (uErr) {
+        console.error('Failed to sync user account on staff creation:', uErr);
+      }
+
       const mapped = {
         ...created,
         empId: created.employeeId,
+        username: created.username || usernameVal,
+        password: created.password || pwdVal,
         status: created.status === 'ACTIVE' ? 'Active' : 'Inactive',
         allocatedClass: created.assignedClass || '10th A',
         subjects: created.subjectSpecial ? created.subjectSpecial.split(',').map((i) => i.trim()) : [],
@@ -82,7 +118,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, empId, username, password, experienceYears, ...updates } = body;
+    const { id, empId, experienceYears, ...updates } = body;
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
     const cleanData: any = {};
@@ -102,6 +138,8 @@ export async function PUT(request: Request) {
     if (body.gender !== undefined) cleanData.gender = String(body.gender);
     if (body.address !== undefined) cleanData.address = String(body.address);
     if (body.photo !== undefined) cleanData.photo = body.photo;
+    if (body.username !== undefined && body.username) cleanData.username = String(body.username);
+    if (body.password !== undefined && body.password) cleanData.password = String(body.password);
 
     if (body.empId || body.employeeId) cleanData.employeeId = body.empId || body.employeeId;
     if (body.allocatedClass || body.assignedClass) cleanData.assignedClass = body.allocatedClass || body.assignedClass;
@@ -118,14 +156,39 @@ export async function PUT(request: Request) {
           where: { id },
           data: cleanData,
         });
+
+        if (cleanData.email || cleanData.username || cleanData.password) {
+          try {
+            await db.user.updateMany({
+              where: { id },
+              data: {
+                ...(cleanData.name && { name: cleanData.name }),
+                ...(cleanData.username && { username: cleanData.username }),
+                ...(cleanData.password && { passwordHash: cleanData.password }),
+                ...(cleanData.email && { email: cleanData.email }),
+                ...(cleanData.role && { role: cleanData.role as any }),
+              },
+            });
+          } catch (uErr) {
+            console.error('Failed to sync user table on staff update:', uErr);
+          }
+        }
       } catch (dbErr) {
         console.error('Failed to update staff in MySQL DB:', dbErr);
       }
     }
 
     const store = useCrudStore.getState();
-    store.updateRecord('staff', id, { ...updates, ...cleanData, name: cleanData.name || body.name });
-    return NextResponse.json({ success: true });
+    const updatedFull = {
+      ...body,
+      ...cleanData,
+      empId: cleanData.employeeId || body.empId || 'EMP-001',
+      name: cleanData.name || body.name,
+      username: cleanData.username || body.username,
+      password: cleanData.password || body.password,
+    };
+    store.updateRecord('staff', id, updatedFull);
+    return NextResponse.json({ success: true, data: updatedFull });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Failed to update staff' }, { status: 500 });
   }
