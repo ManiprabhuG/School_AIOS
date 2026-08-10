@@ -99,9 +99,22 @@ export default function FeesPage() {
         (c) => ({ label: c, value: c })
       ),
     },
-
-    { name: 'totalAmount', label: 'Total Fee Amount (₹)', type: 'number', placeholder: 'Auto-calculated from class fee structure', readOnly: true },
-    { name: 'amount', label: 'Collected Fee Amount (₹)', type: 'number', placeholder: 'Enter collected amount' },
+    {
+      name: 'totalAmount',
+      label: 'Total Fee Amount (₹) *',
+      type: 'number',
+      placeholder: 'Auto-populated annual fee (e.g. 42000)',
+      readOnly: true,
+      description: 'Standard total fee for selected class & fee category',
+    },
+    {
+      name: 'amount',
+      label: 'Collected Fee Amount (₹) *',
+      type: 'number',
+      placeholder: 'Enter amount paid by parent (e.g. 22000)',
+      required: true,
+      description: 'Editable amount paid by customer for this collection',
+    },
     {
       name: 'feeCategory',
       label: 'Fee Category',
@@ -172,22 +185,22 @@ export default function FeesPage() {
 
     const fs = feeStructures.find((f) => f.className === p.className);
     const category: string = String(p.feeCategory || 'Annual');
-    let defaultCategoryFee = 60000;
+    let defaultCategoryFee = 42000;
     if (fs) {
-      if (category === 'Annual' || category === 'Annual Fee') defaultCategoryFee = fs.totalAnnualFee;
-      else if (category === 'Tuition') defaultCategoryFee = fs.tuitionFee;
-      else if (category === 'Admission') defaultCategoryFee = fs.admissionFee;
-      else if (category === 'Transport') defaultCategoryFee = fs.transportFee;
-      else if (category === 'Uniform') defaultCategoryFee = fs.uniformFee;
-      else if (category === 'Lab') defaultCategoryFee = fs.labFee;
-      else if (category === 'Exam' || category === 'Books' || category === 'Other') defaultCategoryFee = p.amount || 0;
-      else defaultCategoryFee = 0;
+      if (category === 'Annual' || category === 'Annual Fee') defaultCategoryFee = fs.totalAnnualFee || 42000;
+      else if (category === 'Tuition') defaultCategoryFee = fs.tuitionFee || 35000;
+      else if (category === 'Admission') defaultCategoryFee = fs.admissionFee || 5000;
+      else if (category === 'Transport') defaultCategoryFee = fs.transportFee || 12000;
+      else if (category === 'Uniform') defaultCategoryFee = fs.uniformFee || 3500;
+      else if (category === 'Lab') defaultCategoryFee = fs.labFee || 2500;
+      else if (category === 'Exam' || category === 'Books' || category === 'Other') defaultCategoryFee = p.totalAmount || p.amount || 0;
+      else defaultCategoryFee = 42000;
     }
 
     const totalFee = p.totalAmount || (std?.dueFees ? p.amount + std.dueFees : defaultCategoryFee);
 
     let dueAmt = 0;
-    if (p.dueAmount !== undefined && p.dueAmount > 0) {
+    if (p.dueAmount !== undefined && p.dueAmount >= 0) {
       dueAmt = p.dueAmount;
     } else if (totalFee > p.amount) {
       dueAmt = totalFee - p.amount;
@@ -218,88 +231,71 @@ export default function FeesPage() {
     },
     {
       key: 'amount',
-      header: 'Amount Paid & Due Status',
+      header: 'Collected Amount',
+      sortable: true,
+      render: (p) => <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{(p.amount || 0).toLocaleString('en-IN')}</span>,
+    },
+    {
+      key: 'totalAmount',
+      header: 'Total Fee Amount',
+      sortable: true,
+      render: (p) => {
+        const { totalFee } = getPaymentDueInfo(p);
+        return <span className="font-bold text-slate-700 dark:text-slate-300">₹{(totalFee || 0).toLocaleString('en-IN')}</span>;
+      },
+    },
+    {
+      key: 'dueAmount',
+      header: 'Pending Due',
       sortable: true,
       render: (p) => {
         const { dueAmt } = getPaymentDueInfo(p);
-
         return (
-          <div className="space-y-0.5">
-            <span className="font-extrabold text-emerald-600 dark:text-emerald-400 block">
-              {formatCurrency(p.amount)}
-            </span>
-            {dueAmt > 0 ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                Due Pending: {formatCurrency(dueAmt)}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                Fully Paid
-              </span>
-            )}
-          </div>
+          <span className={`font-bold ${dueAmt > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            {dueAmt > 0 ? `₹${dueAmt.toLocaleString('en-IN')}` : '₹0 (Paid)'}
+          </span>
         );
       },
     },
     { key: 'feeCategory', header: 'Category', sortable: true },
     { key: 'paymentMode', header: 'Mode', sortable: true },
     { key: 'paymentDate', header: 'Date', sortable: true },
-    { key: 'collectedBy', header: 'Collected By' },
-    {
-      key: 'status',
-      header: 'Status',
-      sortable: true,
-      render: (p) => (
-        <span
-          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            p.status === 'Success'
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-              : p.status === 'Pending'
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-              : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
-          }`}
-        >
-          {p.status}
-        </span>
-      ),
-    },
+    { key: 'collectedBy', header: 'Cashier' },
     {
       key: 'actions',
-      header: 'Print',
-      render: (p) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const { totalFee, dueAmt, std } = getPaymentDueInfo(p);
-
-            setPrintReceiptData({
-              receiptNumber: p.receiptNo || `RCP-${p.id}`,
-              title: 'OFFICIAL SCHOOL FEE RECEIPT',
-              studentName: p.studentName,
-              admissionNo: std?.admissionNo || p.studentId || 'ADM-2026-101',
-              className: p.className || '10th',
-              section: std?.section || 'A',
-              parentName: std?.fatherName || std?.parentName || 'Parent / Guardian',
-              paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
-              paymentMethod: p.paymentMode || 'Cash/UPI',
-              cashierName: p.collectedBy || 'Finance Cashier',
-              items: [
-                { name: `${p.feeCategory} Fee Payment`, amount: p.amount },
-              ],
-              subtotal: totalFee,
-              totalAmount: p.amount,
-              remainingBalance: dueAmt,
-              notes:
-                dueAmt > 0
-                  ? `Partial payment collected. Pending due amount of ${formatCurrency(dueAmt)} remaining to be cleared.`
-                  : 'Full payment received with thanks.',
-            });
-          }}
-          className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm active:scale-95"
-        >
-          <FileText className="w-3 h-3" /> Print Receipt
-        </button>
-      ),
+      header: 'Actions',
+      render: (p) => {
+        const { totalFee, dueAmt, std } = getPaymentDueInfo(p);
+        return (
+          <button
+            onClick={() => {
+              setPrintReceiptData({
+                receiptNumber: p.receiptNo || `RCP-${p.id}`,
+                title: 'OFFICIAL SCHOOL FEE RECEIPT',
+                studentName: p.studentName,
+                admissionNo: std?.admissionNo || p.studentId || 'ADM-2026-101',
+                className: p.className || '10th',
+                section: std?.section || 'A',
+                parentName: std?.fatherName || 'Parent / Guardian',
+                paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
+                paymentMethod: p.paymentMode || 'Cash/UPI',
+                cashierName: p.collectedBy || 'Finance Cashier',
+                items: [{ name: `${p.feeCategory} Fee Payment`, amount: p.amount }],
+                subtotal: totalFee,
+                totalAmount: p.amount,
+                remainingBalance: dueAmt,
+                notes:
+                  dueAmt > 0
+                    ? `Please note: a pending balance of ₹${dueAmt.toLocaleString('en-IN')} is outstanding.`
+                    : 'Full payment received with thanks. All dues cleared.',
+              });
+            }}
+            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm active:scale-95"
+          >
+            <FileText className="w-3 h-3" /> Print Receipt
+          </button>
+        );
+      },
     },
   ];
 
@@ -307,27 +303,28 @@ export default function FeesPage() {
     const selectedStd = students.find((s) => s.name === data.studentName);
     const collectedAmt = Number(data.amount) || 0;
 
-    // Determine expected total amount for category/class
+    // Determine total fee amount (read-only field from form or fee structure)
     const category: string = String(data.feeCategory || 'Annual');
     const fs = feeStructures.find((f) => f.className === data.className);
-    let expectedAmt = collectedAmt;
+    let expectedAmt = Number(data.totalAmount) || 42000;
     if (fs) {
-      if (category === 'Annual' || category === 'Annual Fee') expectedAmt = fs.totalAnnualFee;
-      else if (category === 'Tuition') expectedAmt = fs.tuitionFee;
-      else if (category === 'Admission') expectedAmt = fs.admissionFee;
-      else if (category === 'Transport') expectedAmt = fs.transportFee;
-      else if (category === 'Uniform') expectedAmt = fs.uniformFee;
-      else if (category === 'Lab') expectedAmt = fs.labFee;
-      else if (category === 'Exam' || category === 'Books' || category === 'Other') expectedAmt = collectedAmt;
-      else expectedAmt = collectedAmt;
-    } else if (selectedStd?.dueFees) {
-      expectedAmt = Math.max(collectedAmt, selectedStd.dueFees);
+      if (category === 'Annual' || category === 'Annual Fee') expectedAmt = fs.totalAnnualFee || 42000;
+      else if (category === 'Tuition') expectedAmt = fs.tuitionFee || 35000;
+      else if (category === 'Admission') expectedAmt = fs.admissionFee || 5000;
+      else if (category === 'Transport') expectedAmt = fs.transportFee || 12000;
+      else if (category === 'Uniform') expectedAmt = fs.uniformFee || 3500;
+      else if (category === 'Lab') expectedAmt = fs.labFee || 2500;
+      else if (category === 'Exam' || category === 'Books' || category === 'Other') expectedAmt = Number(data.totalAmount) || collectedAmt;
+    } else if (selectedStd?.totalFees) {
+      expectedAmt = selectedStd.totalFees;
     }
-    const dueAmt = expectedAmt > collectedAmt ? expectedAmt - collectedAmt : 0;
+
+    const dueAmt = Math.max(0, expectedAmt - collectedAmt);
 
     const payload = {
       ...data,
       totalAmount: expectedAmt,
+      amount: collectedAmt,
       dueAmount: dueAmt,
     };
 
@@ -355,7 +352,7 @@ export default function FeesPage() {
         dueAmount: dueAmt,
         paymentMode: data.paymentMode || 'UPI',
         paymentDate: data.paymentDate || new Date().toISOString().split('T')[0],
-        feeCategory: data.feeCategory || 'Tuition',
+        feeCategory: data.feeCategory || 'Annual',
         status: data.status || 'Success',
         collectedBy: data.collectedBy || 'Accounts Desk',
       };
@@ -400,7 +397,7 @@ export default function FeesPage() {
         }),
       }).catch((err) => console.error('Failed to save fee payment to DB:', err));
 
-      // Automatically show printing preview
+      // Automatically show printing preview with exact Total, Collected, and Pending Dues
       setPrintReceiptData({
         receiptNumber: newPay.receiptNo,
         title: 'OFFICIAL SCHOOL FEE RECEIPT',
@@ -415,10 +412,10 @@ export default function FeesPage() {
         items: [
           { name: `${newPay.feeCategory} Fee Payment`, amount: newPay.amount },
         ],
-        subtotal: newPay.totalAmount ?? newPay.amount,
+        subtotal: newPay.totalAmount,
         totalAmount: newPay.amount,
         remainingBalance: newPay.dueAmount,
-        notes: (newPay.dueAmount ?? 0) > 0 ? `Please note: a balance of ₹${(newPay.dueAmount ?? 0).toLocaleString('en-IN')} is outstanding.` : 'All dues cleared. Thank you!',
+        notes: (newPay.dueAmount ?? 0) > 0 ? `Please note: an outstanding balance of ₹${(newPay.dueAmount ?? 0).toLocaleString('en-IN')} remains pending.` : 'All dues cleared. Thank you!',
       });
 
       if (!saveAndNew) setIsAddModalOpen(false);
