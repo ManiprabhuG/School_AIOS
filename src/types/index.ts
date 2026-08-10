@@ -106,6 +106,8 @@ export interface Staff extends BaseAuditEntity {
   subjects?: string[];
   allocatedClass?: string;
   busRouteHandled?: string;
+  username?: string;
+  password?: string;
 }
 
 export interface AttendanceRecord extends BaseAuditEntity {
