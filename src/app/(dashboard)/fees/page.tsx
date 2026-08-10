@@ -412,7 +412,7 @@ export default function FeesPage() {
         items: [
           { name: `${newPay.feeCategory} Fee Payment`, amount: newPay.amount },
         ],
-        subtotal: newPay.totalAmount,
+        subtotal: newPay.totalAmount ?? newPay.amount ?? 42000,
         totalAmount: newPay.amount,
         remainingBalance: newPay.dueAmount,
         notes: (newPay.dueAmount ?? 0) > 0 ? `Please note: an outstanding balance of ₹${(newPay.dueAmount ?? 0).toLocaleString('en-IN')} remains pending.` : 'All dues cleared. Thank you!',
