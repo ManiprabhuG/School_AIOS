@@ -628,13 +628,17 @@ export default function ExaminationsPage() {
             if (!confirmDelete) return;
             const targetId = confirmDelete.id;
             const target = confirmDelete.target || 'exams';
-            permanentDeleteRecord(target, targetId);
-            softDeleteRecord(target, targetId);
-            try {
-              await fetch(`/api/exams?id=${targetId}`, { method: 'DELETE' });
-              router.refresh();
-            } catch (err) {
-              console.error('Failed to delete exam from DB:', err);
+            if (target === 'hallAllocations') {
+              setHallAllocations((prev) => prev.filter((item) => item.id !== targetId));
+            } else {
+              permanentDeleteRecord(target, targetId);
+              softDeleteRecord(target, targetId);
+              try {
+                await fetch(`/api/exams?id=${targetId}`, { method: 'DELETE' });
+                router.refresh();
+              } catch (err) {
+                console.error('Failed to delete exam from DB:', err);
+              }
             }
             setConfirmDelete(null);
           }}
