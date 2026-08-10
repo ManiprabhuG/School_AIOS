@@ -11,7 +11,7 @@ import { CrudModal, FieldConfig } from '@/components/crud/CrudModal';
 import { ImportModal } from '@/components/crud/ImportModal';
 import { AuditLogViewer } from '@/components/crud/AuditLogViewer';
 import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
-import { ShieldCheck, Key, UserPlus, Lock, CheckSquare, XSquare } from 'lucide-react';
+import { ShieldCheck, Key, UserPlus, Lock, CheckSquare, XSquare, Plus, Trash2, Save, Check, X, RefreshCw } from 'lucide-react';
 
 export default function AdminManagementPage() {
   const {
@@ -38,6 +38,132 @@ export default function AdminManagementPage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string; permanent: boolean } | null>(null);
+
+  // Role Matrix Management State
+  const [isSavingMatrix, setIsSavingMatrix] = useState(false);
+  const [matrixSaveSuccess, setMatrixSaveSuccess] = useState(false);
+
+  const [isAddRoleModalOpen, setIsAddRoleModalOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleDescription, setNewRoleDescription] = useState('');
+
+  const [isAddModuleModalOpen, setIsAddModuleModalOpen] = useState(false);
+  const [targetRoleForModule, setTargetRoleForModule] = useState<string>('');
+  const [newModuleName, setNewModuleName] = useState('');
+
+  // Toggle Action Handler (View/Read, Create, Edit/Update, Delete, Export)
+  const handleTogglePermission = (
+    roleName: string,
+    moduleName: string,
+    actionKey: 'create' | 'read' | 'update' | 'delete' | 'export'
+  ) => {
+    const updated = rolePermissions.map((rp) => {
+      if (rp.role !== roleName) return rp;
+      const updatedPerms = rp.permissions.map((p) => {
+        if (p.module !== moduleName) return p;
+        return {
+          ...p,
+          [actionKey]: !p[actionKey],
+        };
+      });
+      return {
+        ...rp,
+        permissions: updatedPerms,
+      };
+    });
+
+    useCrudStore.setState({ rolePermissions: updated });
+  };
+
+  // Save Role Matrix to DB API Handler
+  const handleSaveRoleMatrixToDb = async () => {
+    setIsSavingMatrix(true);
+    setMatrixSaveSuccess(false);
+    try {
+      await fetch('/api/auth/permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rolePermissions),
+      });
+      setMatrixSaveSuccess(true);
+      setTimeout(() => setMatrixSaveSuccess(false), 4000);
+    } catch (err) {
+      console.error('Failed to save role permissions to DB:', err);
+    } finally {
+      setIsSavingMatrix(false);
+    }
+  };
+
+  // Add Custom Role Profile
+  const handleCreateRoleProfile = () => {
+    if (!newRoleName.trim()) return;
+    const roleExists = rolePermissions.some((r) => r.role.toLowerCase() === newRoleName.trim().toLowerCase());
+    if (roleExists) {
+      alert('Role profile already exists!');
+      return;
+    }
+
+    const newProfile: RolePermission = {
+      role: newRoleName.trim() as any,
+      description: newRoleDescription.trim() || 'Custom ERP Role Profile',
+      permissions: [
+        { module: 'Students', create: false, read: true, update: false, delete: false, export: false },
+        { module: 'Attendance', create: true, read: true, update: true, delete: false, export: true },
+        { module: 'Announcements', create: false, read: true, update: false, delete: false, export: false },
+      ],
+    };
+
+    const updated = [...rolePermissions, newProfile];
+    useCrudStore.setState({ rolePermissions: updated });
+    setIsAddRoleModalOpen(false);
+    setNewRoleName('');
+    setNewRoleDescription('');
+  };
+
+  // Add Custom Module to Role
+  const handleAddModuleToRole = () => {
+    if (!newModuleName.trim() || !targetRoleForModule) return;
+
+    const updated = rolePermissions.map((rp) => {
+      if (rp.role !== targetRoleForModule) return rp;
+      const exists = rp.permissions.some((p) => p.module.toLowerCase() === newModuleName.trim().toLowerCase());
+      if (exists) return rp;
+      return {
+        ...rp,
+        permissions: [
+          ...rp.permissions,
+          { module: newModuleName.trim(), create: true, read: true, update: true, delete: false, export: true },
+        ],
+      };
+    });
+
+    useCrudStore.setState({ rolePermissions: updated });
+    setIsAddModuleModalOpen(false);
+    setNewModuleName('');
+    setTargetRoleForModule('');
+  };
+
+  // Delete Module from Role
+  const handleDeleteModuleFromRole = (roleName: string, moduleName: string) => {
+    const updated = rolePermissions.map((rp) => {
+      if (rp.role !== roleName) return rp;
+      return {
+        ...rp,
+        permissions: rp.permissions.filter((p) => p.module !== moduleName),
+      };
+    });
+    useCrudStore.setState({ rolePermissions: updated });
+  };
+
+  // Delete Entire Role Profile
+  const handleDeleteRoleProfile = (roleName: string) => {
+    if (roleName === 'Super Admin') {
+      alert('Super Admin role matrix cannot be deleted!');
+      return;
+    }
+    const updated = rolePermissions.filter((rp) => rp.role !== roleName);
+    useCrudStore.setState({ rolePermissions: updated });
+  };
 
   const adminFields: FieldConfig[] = [
     { name: 'name', label: 'Full User Name', type: 'text' },
@@ -225,52 +351,169 @@ export default function AdminManagementPage() {
         />
       ) : (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
-          <div>
-            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Role Permission Matrix</h2>
-            <p className="text-xs text-slate-500">Configure Create, Read, Update, Delete & Export privileges for each ERP role</p>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-600" /> Granular Role Permission Matrix
+              </h2>
+              <p className="text-xs text-slate-500">
+                Configure exact View (Read), Create, Edit (Update), Delete & Export privileges for each user role in MySQL Database
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setIsAddRoleModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center gap-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-all border border-indigo-200/50 dark:border-indigo-800/50"
+              >
+                <Plus className="w-4 h-4" /> Add Role Profile
+              </button>
+              <button
+                onClick={handleSaveRoleMatrixToDb}
+                disabled={isSavingMatrix}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center gap-1.5 hover:bg-indigo-700 transition-all shadow-sm disabled:opacity-50"
+              >
+                {isSavingMatrix ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {isSavingMatrix ? 'Saving to Database...' : 'Save Matrix to Database'}
+              </button>
+            </div>
           </div>
+
+          {matrixSaveSuccess && (
+            <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 text-xs font-extrabold border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+              <Check className="w-4 h-4" /> Role permission matrix updated & saved to MySQL database successfully!
+            </div>
+          )}
 
           <div className="space-y-6">
             {rolePermissions.map((rp) => (
-              <div key={rp.role} className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
-                <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div key={rp.role} className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 bg-slate-50/50 dark:bg-slate-900/40">
+                <div className="flex justify-between items-center border-b border-slate-200/60 dark:border-slate-800 pb-3">
                   <div>
-                    <h3 className="font-extrabold text-slate-900 dark:text-white text-base">{rp.role}</h3>
-                    <p className="text-xs text-slate-500">{rp.description}</p>
+                    <h3 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                      {rp.role}
+                      <span className="px-2.5 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 font-bold text-[10px] rounded-full uppercase tracking-wider">
+                        {rp.permissions.length} Modules Configured
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">{rp.description || 'Configured ERP Role Privileges'}</p>
                   </div>
-                  <span className="px-3 py-1 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-full">Active Matrix</span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setTargetRoleForModule(rp.role);
+                        setIsAddModuleModalOpen(true);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-[11px] border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Module
+                    </button>
+                    {rp.role !== 'Super Admin' && (
+                      <button
+                        onClick={() => handleDeleteRoleProfile(rp.role)}
+                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200"
+                        title="Delete Role Profile"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-bold uppercase">
+                    <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[11px] border-b border-slate-200 dark:border-slate-800">
                       <tr>
-                        <th className="p-2">Module</th>
-                        <th className="p-2 text-center">Create</th>
-                        <th className="p-2 text-center">Read</th>
-                        <th className="p-2 text-center">Update</th>
-                        <th className="p-2 text-center">Delete</th>
-                        <th className="p-2 text-center">Export</th>
+                        <th className="p-3">Module Name</th>
+                        <th className="p-3 text-center">View (Read)</th>
+                        <th className="p-3 text-center">Create (Add)</th>
+                        <th className="p-3 text-center">Edit (Update)</th>
+                        <th className="p-3 text-center">Delete (Remove)</th>
+                        <th className="p-3 text-center">Export (Report)</th>
+                        <th className="p-3 text-center w-12">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-semibold">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-bold">
                       {rp.permissions.map((p) => (
-                        <tr key={p.module}>
-                          <td className="p-2 text-slate-800 dark:text-slate-200">{p.module}</td>
-                          <td className="p-2 text-center">
-                            {p.create ? <CheckSquare className="w-4 h-4 text-emerald-500 mx-auto" /> : <XSquare className="w-4 h-4 text-slate-300 mx-auto" />}
+                        <tr key={p.module} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="p-3 text-slate-900 dark:text-slate-100 font-extrabold flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                            {p.module}
                           </td>
-                          <td className="p-2 text-center">
-                            {p.read ? <CheckSquare className="w-4 h-4 text-emerald-500 mx-auto" /> : <XSquare className="w-4 h-4 text-slate-300 mx-auto" />}
+
+                          {/* View (Read) Option */}
+                          <td className="p-3 text-center">
+                            <label className="inline-flex items-center justify-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={p.read}
+                                onChange={() => handleTogglePermission(rp.role, p.module, 'read')}
+                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                              />
+                            </label>
                           </td>
-                          <td className="p-2 text-center">
-                            {p.update ? <CheckSquare className="w-4 h-4 text-emerald-500 mx-auto" /> : <XSquare className="w-4 h-4 text-slate-300 mx-auto" />}
+
+                          {/* Create Option */}
+                          <td className="p-3 text-center">
+                            <label className="inline-flex items-center justify-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={p.create}
+                                onChange={() => handleTogglePermission(rp.role, p.module, 'create')}
+                                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                              />
+                            </label>
                           </td>
-                          <td className="p-2 text-center">
-                            {p.delete ? <CheckSquare className="w-4 h-4 text-emerald-500 mx-auto" /> : <XSquare className="w-4 h-4 text-slate-300 mx-auto" />}
+
+                          {/* Edit (Update) Option */}
+                          <td className="p-3 text-center">
+                            <label className="inline-flex items-center justify-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={p.update}
+                                onChange={() => handleTogglePermission(rp.role, p.module, 'update')}
+                                className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                              />
+                            </label>
                           </td>
-                          <td className="p-2 text-center">
-                            {p.export ? <CheckSquare className="w-4 h-4 text-emerald-500 mx-auto" /> : <XSquare className="w-4 h-4 text-slate-300 mx-auto" />}
+
+                          {/* Delete Option */}
+                          <td className="p-3 text-center">
+                            <label className="inline-flex items-center justify-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={p.delete}
+                                onChange={() => handleTogglePermission(rp.role, p.module, 'delete')}
+                                className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                              />
+                            </label>
+                          </td>
+
+                          {/* Export Option */}
+                          <td className="p-3 text-center">
+                            <label className="inline-flex items-center justify-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={p.export}
+                                onChange={() => handleTogglePermission(rp.role, p.module, 'export')}
+                                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                              />
+                            </label>
+                          </td>
+
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => handleDeleteModuleFromRole(rp.role, p.module)}
+                              className="text-slate-400 hover:text-rose-600 p-1"
+                              title="Delete Module from Role"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -330,6 +573,101 @@ export default function AdminManagementPage() {
             }
           }}
         />
+      )}
+
+      {/* Add Role Profile Modal */}
+      {isAddRoleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 max-w-md w-full space-y-4 shadow-xl">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="font-extrabold text-slate-900 dark:text-white text-base">Create New Role Profile</h3>
+              <button onClick={() => setIsAddRoleModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Role Title / Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Librarian, Academic Coordinator, Vice Principal"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Role Description</label>
+                <textarea
+                  rows={3}
+                  placeholder="Brief summary of duties and permission scope for this role"
+                  value={newRoleDescription}
+                  onChange={(e) => setNewRoleDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setIsAddRoleModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateRoleProfile}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-sm"
+              >
+                Create Role Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Module to Role Modal */}
+      {isAddModuleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 max-w-md w-full space-y-4 shadow-xl">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="font-extrabold text-slate-900 dark:text-white text-base">Add Module to {targetRoleForModule}</h3>
+              <button onClick={() => setIsAddModuleModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Module Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Library, Payroll, Hostel, Transport, Reports"
+                  value={newModuleName}
+                  onChange={(e) => setNewModuleName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setIsAddModuleModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddModuleToRole}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-sm"
+              >
+                Add Module
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

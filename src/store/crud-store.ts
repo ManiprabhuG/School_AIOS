@@ -136,8 +136,29 @@ export const initialRolePermissions: RolePermission[] = [
     permissions: [
       { module: 'Students', create: true, read: true, update: true, delete: true, export: true },
       { module: 'Staff', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Fees', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Examinations', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Attendance', create: true, read: true, update: true, delete: true, export: true },
       { module: 'Finance', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Inventory', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Purchases', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Sales', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Bus & Transport', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Announcements', create: true, read: true, update: true, delete: true, export: true },
       { module: 'Settings', create: true, read: true, update: true, delete: true, export: true },
+    ],
+  },
+  {
+    role: 'Principal',
+    description: 'Executive academic & administrative oversight across all school departments',
+    permissions: [
+      { module: 'Students', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Staff', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Fees', create: false, read: true, update: false, delete: false, export: true },
+      { module: 'Examinations', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Attendance', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Finance', create: false, read: true, update: false, delete: false, export: true },
+      { module: 'Announcements', create: true, read: true, update: true, delete: false, export: true },
     ],
   },
   {
@@ -147,6 +168,8 @@ export const initialRolePermissions: RolePermission[] = [
       { module: 'Fees', create: true, read: true, update: true, delete: false, export: true },
       { module: 'Finance', create: true, read: true, update: true, delete: false, export: true },
       { module: 'Purchases', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Sales', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Students', create: false, read: true, update: false, delete: false, export: true },
     ],
   },
   {
@@ -156,6 +179,33 @@ export const initialRolePermissions: RolePermission[] = [
       { module: 'Students', create: false, read: true, update: false, delete: false, export: true },
       { module: 'Examinations', create: true, read: true, update: true, delete: false, export: true },
       { module: 'Attendance', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Announcements', create: false, read: true, update: false, delete: false, export: false },
+    ],
+  },
+  {
+    role: 'HR',
+    description: 'Staff onboarding, payroll setup, performance tracking and attendance',
+    permissions: [
+      { module: 'Staff', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Attendance', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Announcements', create: true, read: true, update: true, delete: false, export: true },
+    ],
+  },
+  {
+    role: 'Inventory Manager',
+    description: 'Stock management, asset tracking, purchase requests, and store sales',
+    permissions: [
+      { module: 'Inventory', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Purchases', create: true, read: true, update: true, delete: false, export: true },
+      { module: 'Sales', create: true, read: true, update: true, delete: false, export: true },
+    ],
+  },
+  {
+    role: 'Transport Manager',
+    description: 'School bus routes, vehicle maintenance, driver assignments, and student transport',
+    permissions: [
+      { module: 'Bus & Transport', create: true, read: true, update: true, delete: true, export: true },
+      { module: 'Students', create: false, read: true, update: false, delete: false, export: true },
     ],
   },
 ];
