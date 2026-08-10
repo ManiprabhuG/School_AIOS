@@ -13,6 +13,8 @@ import { AuditLogViewer } from '@/components/crud/AuditLogViewer';
 import { ConfirmDialog } from '@/components/crud/ConfirmDialog';
 import { CalendarCheck, Calendar as CalendarIcon, Table as TableIcon, ChevronLeft, ChevronRight, Plus, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
 
+import { useAuthStore } from '@/store/auth-store';
+
 export default function AttendancePage() {
   const router = useRouter();
   const {
@@ -20,8 +22,60 @@ export default function AttendancePage() {
     staff,
     auditLogs,
   } = useCrudStore();
+  const { activeRole, user } = useAuthStore();
 
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+
+  const isExecutive = useMemo(() => {
+    return ['Super Admin', 'Admin', 'Principal', 'Vice Principal'].includes(activeRole);
+  }, [activeRole]);
+
+  // Match logged-in teacher's allocated class
+  const teacherAllocatedClass = useMemo(() => {
+    if (isExecutive) return null;
+
+    const matchedStaff =
+      staff.find((s) => {
+        if (user?.email && s.email?.toLowerCase() === user.email.toLowerCase()) return true;
+        if (user?.name && s.name?.toLowerCase() === user.name.toLowerCase()) return true;
+        if (user?.username && s.email?.toLowerCase().includes(user.username.toLowerCase())) return true;
+        return false;
+      }) || staff.find((s) => s.role === 'Teacher');
+
+    const rawClass = matchedStaff?.allocatedClass || (matchedStaff as any)?.assignedClass || '10th A';
+    const parts = rawClass.trim().split(' ');
+    const cls = parts[0] || '10th';
+    const sec = parts[1] || 'A';
+
+    return {
+      full: rawClass,
+      className: cls,
+      section: sec,
+      teacherName: matchedStaff?.name || user?.name || 'Class Teacher',
+    };
+  }, [isExecutive, staff, user]);
+
+  const visibleAttendanceRecords = useMemo(() => {
+    if (isExecutive) return attendanceRecords;
+
+    if (teacherAllocatedClass) {
+      return attendanceRecords.filter((r) => {
+        if (r.entityType === 'Staff') return false;
+
+        const targetCls = teacherAllocatedClass.className.toLowerCase();
+        const targetSec = teacherAllocatedClass.section.toLowerCase();
+        const recordCls = (r.className || '').toLowerCase();
+        const recordSec = (r.section || '').toLowerCase();
+
+        const classMatches = recordCls.includes(targetCls) || targetCls.includes(recordCls);
+        const sectionMatches = !targetSec || recordSec === targetSec || !recordSec;
+
+        return classMatches && sectionMatches;
+      });
+    }
+
+    return attendanceRecords;
+  }, [attendanceRecords, isExecutive, teacherAllocatedClass]);
 
   const parseClassAndSection = (rawClass?: string | null, rawSection?: string | null) => {
     let cls = (rawClass || '').trim();
@@ -384,7 +438,7 @@ export default function AttendancePage() {
     }
     for (let d = 1; d <= totalDaysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const recs = attendanceRecords.filter((r) => r.date === dateStr && !r.isDeleted);
+      const recs = visibleAttendanceRecords.filter((r) => r.date === dateStr && !r.isDeleted);
       const presentCount = recs.filter((r) => r.status === 'Present').length;
       const absentCount = recs.filter((r) => r.status === 'Absent').length;
       const lateLeaveCount = recs.filter((r) => r.status === 'Late' || r.status === 'Leave' || r.status === 'Half Day').length;
@@ -399,7 +453,7 @@ export default function AttendancePage() {
       });
     }
     return days;
-  }, [year, month, firstDay, totalDaysInMonth, attendanceRecords]);
+  }, [year, month, firstDay, totalDaysInMonth, visibleAttendanceRecords]);
 
   return (
     <div className="space-y-6">
@@ -410,10 +464,25 @@ export default function AttendancePage() {
             <CalendarCheck className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Attendance Register & Monthly Calendar
-            </h2>
-            <p className="text-xs text-slate-500">Real-time attendance tracking for Students & Staff</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Attendance Register & Monthly Calendar
+              </h2>
+              {!isExecutive && teacherAllocatedClass ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-extrabold">
+                  Class In-Charge: {teacherAllocatedClass.className}-{teacherAllocatedClass.section} ({teacherAllocatedClass.teacherName})
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 text-[11px] font-extrabold">
+                  {activeRole} (Full School Access)
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">
+              {!isExecutive && teacherAllocatedClass
+                ? `Showing attendance records & calendar for Class ${teacherAllocatedClass.className}-${teacherAllocatedClass.section} only`
+                : 'Real-time attendance tracking for Students & Staff across all classes'}
+            </p>
           </div>
         </div>
 
@@ -445,10 +514,14 @@ export default function AttendancePage() {
       {viewMode === 'table' ? (
         <DataTable
           title="Student & Staff Attendance Register"
-          subtitle="Daily Attendance Marking, Late Check-Ins, Leave Submissions & Muster Roll"
+          subtitle={
+            !isExecutive && teacherAllocatedClass
+              ? `Daily Attendance Register for Class ${teacherAllocatedClass.className}-${teacherAllocatedClass.section}`
+              : 'Daily Attendance Marking, Late Check-Ins, Leave Submissions & Muster Roll'
+          }
           icon={<CalendarCheck className="w-6 h-6" />}
           columns={columns}
-          data={attendanceRecords}
+          data={visibleAttendanceRecords}
           addLabel="Mark Attendance Entry"
           exportFilename="ABS_Attendance_Register"
           filterOptions={dynamicFilterOptions}
@@ -613,7 +686,19 @@ export default function AttendancePage() {
         }}
         title="Attendance Record"
         fields={attendanceFields}
-        initialData={editingAtt ? { ...editingAtt } : null}
+        initialData={
+          editingAtt
+            ? { ...editingAtt }
+            : !isExecutive && teacherAllocatedClass
+            ? {
+                entityType: 'Student',
+                className: teacherAllocatedClass.className,
+                section: teacherAllocatedClass.section,
+                date: new Date().toISOString().split('T')[0],
+                status: 'Present',
+              }
+            : null
+        }
         onSave={handleSaveAttendance}
       />
 
