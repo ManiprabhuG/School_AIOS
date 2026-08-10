@@ -253,14 +253,15 @@ export default function GlobalSearchModal() {
     buses.filter((b) => !b.isDeleted).forEach((b) => {
       if (
         b.routeName?.toLowerCase().includes(q) ||
-        b.busNumber?.toLowerCase().includes(q) ||
+        b.busNo?.toLowerCase().includes(q) ||
+        b.routeNo?.toLowerCase().includes(q) ||
         b.driverName?.toLowerCase().includes(q)
       ) {
         results.push({
           id: b.id,
           type: 'Bus Route',
-          title: `${b.routeName} (${b.busNumber})`,
-          subtitle: `Driver: ${b.driverName} | Phone: ${b.driverPhone}`,
+          title: `${b.routeName} (${b.busNo || b.routeNo || 'Bus'})`,
+          subtitle: `Driver: ${b.driverName || 'N/A'} | Phone: ${b.driverPhone || 'N/A'}`,
           link: `/bus`,
           icon: Bus,
         });
