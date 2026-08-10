@@ -48,7 +48,13 @@ function PersonNameInput({
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const category = (formData.entityType || formData.personType || formData.customerType || '').toLowerCase();
-  const isStaffCategory = category === 'staff';
+  const isStaffCategory =
+    category === 'staff' ||
+    formData.role !== undefined ||
+    formData.employeeId !== undefined ||
+    formData.empId !== undefined ||
+    field.name === 'staffName' ||
+    field.name === 'collectedBy';
   const rawList = isStaffCategory ? staff : students;
   const list = useMemo(() => rawList.filter((item: any) => !item.isDeleted), [rawList]);
 
@@ -214,6 +220,26 @@ export function CrudModal({
     });
   };
 
+  const handleStaffAutoFill = (staffMember: any) => {
+    setFormData((prev) => {
+      const staffName = staffMember.name || `${staffMember.firstName || ''} ${staffMember.lastName || ''}`.trim();
+      const updated = {
+        ...prev,
+        name: staffName,
+        staffName: staffName,
+        email: staffMember.email || prev.email || '',
+        username: staffMember.username || (staffMember.email ? staffMember.email.split('@')[0] : staffMember.employeeId || 'staff'),
+        role: staffMember.role || prev.role || 'Teacher',
+        department: staffMember.department || prev.department || '',
+      };
+      if (onFormChange) {
+        const overrides = onFormChange(updated, 'name', staffName);
+        if (overrides) Object.assign(updated, overrides);
+      }
+      return updated;
+    });
+  };
+
   const generateAutoId = (fieldName: string) => {
     const timestamp = Date.now().toString().slice(-4);
     const lowerName = fieldName.toLowerCase();
@@ -338,7 +364,17 @@ export function CrudModal({
                       value={formData[field.name]}
                       formData={formData}
                       onChange={(v) => handleChange(field.name, v)}
-                      onAutoFill={handleStudentAutoFill}
+                      onAutoFill={(person) => {
+                        const isStaff =
+                          (formData.entityType || '').toLowerCase() === 'staff' ||
+                          formData.role !== undefined ||
+                          formData.employeeId !== undefined ||
+                          formData.empId !== undefined ||
+                          field.name === 'staffName' ||
+                          field.name === 'collectedBy';
+                        if (isStaff) handleStaffAutoFill(person);
+                        else handleStudentAutoFill(person);
+                      }}
                     />
                   ) : field.type === 'select' ? (
                     <div className="flex items-center gap-2">

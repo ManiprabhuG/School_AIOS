@@ -30,35 +30,47 @@ export default function AttendancePage() {
     return ['Super Admin', 'Admin', 'Principal', 'Vice Principal'].includes(activeRole);
   }, [activeRole]);
 
-  // Match logged-in teacher's allocated class
+  // Match logged-in teacher's allocated class dynamically from Staff Allocation Matrix
   const teacherAllocatedClass = useMemo(() => {
     if (isExecutive) return null;
 
     const matchedStaff =
       staff.find((s) => {
-        if (user?.email && s.email?.toLowerCase() === user.email.toLowerCase()) return true;
-        if (user?.name && s.name?.toLowerCase() === user.name.toLowerCase()) return true;
-        if (user?.username && s.email?.toLowerCase().includes(user.username.toLowerCase())) return true;
+        if (user?.id && s.id === user.id) return true;
+        if (user?.email && s.email?.trim().toLowerCase() === user.email.trim().toLowerCase()) return true;
+        if (user?.name && s.name?.trim().toLowerCase() === user.name.trim().toLowerCase()) return true;
+        if (user?.username && (s.employeeId === user.username || s.email?.toLowerCase().includes(user.username.toLowerCase()))) return true;
         return false;
       }) || staff.find((s) => s.role === 'Teacher');
 
-    const rawClass = matchedStaff?.allocatedClass || (matchedStaff as any)?.assignedClass || '10th A';
+    const rawClass = matchedStaff?.allocatedClass || (matchedStaff as any)?.assignedClass;
+    if (!rawClass || rawClass === 'None') {
+      return {
+        full: 'None',
+        className: 'None',
+        section: 'None',
+        teacherName: matchedStaff?.name || user?.name || 'Teacher',
+        hasAllocation: false,
+      };
+    }
+
     const parts = rawClass.trim().split(' ');
-    const cls = parts[0] || '10th';
-    const sec = parts[1] || 'A';
+    const cls = parts[0] || '';
+    const sec = parts[1] || '';
 
     return {
       full: rawClass,
       className: cls,
       section: sec,
       teacherName: matchedStaff?.name || user?.name || 'Class Teacher',
+      hasAllocation: true,
     };
   }, [isExecutive, staff, user]);
 
   const visibleAttendanceRecords = useMemo(() => {
     if (isExecutive) return attendanceRecords;
 
-    if (teacherAllocatedClass) {
+    if (teacherAllocatedClass && teacherAllocatedClass.hasAllocation) {
       return attendanceRecords.filter((r) => {
         if (r.entityType === 'Staff') return false;
 
@@ -67,11 +79,15 @@ export default function AttendancePage() {
         const recordCls = (r.className || '').toLowerCase();
         const recordSec = (r.section || '').toLowerCase();
 
-        const classMatches = recordCls.includes(targetCls) || targetCls.includes(recordCls);
-        const sectionMatches = !targetSec || recordSec === targetSec || !recordSec;
+        const classMatches = recordCls === targetCls || recordCls.includes(targetCls) || targetCls.includes(recordCls);
+        const sectionMatches = !targetSec || targetSec === 'none' || recordSec === targetSec;
 
         return classMatches && sectionMatches;
       });
+    }
+
+    if (!isExecutive && teacherAllocatedClass && !teacherAllocatedClass.hasAllocation) {
+      return [];
     }
 
     return attendanceRecords;
@@ -94,6 +110,15 @@ export default function AttendancePage() {
   };
 
   React.useEffect(() => {
+    fetch('/api/staff', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          useCrudStore.setState({ staff: res.data });
+        }
+      })
+      .catch((err) => console.error('Failed to fetch live staff allocation:', err));
+
     fetch('/api/attendance', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
