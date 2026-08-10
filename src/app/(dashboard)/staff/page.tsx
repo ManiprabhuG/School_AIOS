@@ -133,6 +133,21 @@ export default function StaffManagementPage() {
         </span>
       ),
     },
+    {
+      key: 'username',
+      header: 'Login ID & Password',
+      sortable: true,
+      render: (s) => (
+        <div className="bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs">
+          <p className="font-mono font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+            <span className="text-slate-400 font-normal text-[10px]">ID:</span> {s.username || s.email?.split('@')[0] || 'staff'}
+          </p>
+          <p className="font-mono text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-1">
+            <span className="text-slate-400 font-normal">Pwd:</span> {s.password || `${s.username || 'staff'}123`}
+          </p>
+        </div>
+      ),
+    },
     { key: 'department', header: 'Department', sortable: true },
     { key: 'phone', header: 'Contact Phone' },
     {
@@ -420,6 +435,9 @@ export default function StaffManagementPage() {
                   </div>
                   <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                     <Mail className="w-3.5 h-3.5 text-blue-500" /> {viewingStaff.email}
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                    <Users className="w-3.5 h-3.5 text-purple-500" /> Login ID: <strong className="font-mono text-slate-800 dark:text-slate-200">{viewingStaff.username || viewingStaff.email?.split('@')[0] || 'staff'}</strong> | Pwd: <strong className="font-mono text-slate-800 dark:text-slate-200">{viewingStaff.password || `${viewingStaff.username || 'staff'}123`}</strong>
                   </div>
                   <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                     <Calendar className="w-3.5 h-3.5 text-emerald-500" /> Joined: {viewingStaff.joiningDate}
