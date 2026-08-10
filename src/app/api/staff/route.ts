@@ -82,29 +82,49 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, empId, ...updates } = body;
+    const { id, empId, username, password, experienceYears, ...updates } = body;
     if (!id) return NextResponse.json({ success: false, error: 'Missing ID' }, { status: 400 });
 
-    const dbUpdates: any = { ...updates };
-    if (empId) dbUpdates.employeeId = empId;
-    if (updates.allocatedClass) dbUpdates.assignedClass = updates.allocatedClass;
-    if (updates.subjects) dbUpdates.subjectSpecial = Array.isArray(updates.subjects) ? updates.subjects.join(', ') : updates.subjects;
-    if (dbUpdates.status === 'Active') dbUpdates.status = 'ACTIVE';
-    if (dbUpdates.status === 'Inactive') dbUpdates.status = 'INACTIVE';
+    const cleanData: any = {};
+    if (body.firstName !== undefined) cleanData.firstName = String(body.firstName);
+    if (body.lastName !== undefined) cleanData.lastName = String(body.lastName);
+    if (body.name !== undefined || (body.firstName && body.lastName)) {
+      cleanData.name = body.name || `${body.firstName || ''} ${body.lastName || ''}`.trim();
+    }
+    if (body.role !== undefined) cleanData.role = String(body.role);
+    if (body.designation !== undefined) cleanData.designation = String(body.designation);
+    if (body.department !== undefined) cleanData.department = String(body.department);
+    if (body.email !== undefined) cleanData.email = String(body.email);
+    if (body.phone !== undefined) cleanData.phone = String(body.phone);
+    if (body.qualification !== undefined) cleanData.qualification = String(body.qualification);
+    if (body.salary !== undefined) cleanData.salary = Number(body.salary) || 0;
+    if (body.joiningDate !== undefined) cleanData.joiningDate = String(body.joiningDate);
+    if (body.gender !== undefined) cleanData.gender = String(body.gender);
+    if (body.address !== undefined) cleanData.address = String(body.address);
+    if (body.photo !== undefined) cleanData.photo = body.photo;
+
+    if (body.empId || body.employeeId) cleanData.employeeId = body.empId || body.employeeId;
+    if (body.allocatedClass || body.assignedClass) cleanData.assignedClass = body.allocatedClass || body.assignedClass;
+    if (body.subjects || body.subjectSpecial) {
+      cleanData.subjectSpecial = Array.isArray(body.subjects) ? body.subjects.join(', ') : body.subjectSpecial;
+    }
+    if (body.status !== undefined) {
+      cleanData.status = body.status === 'Active' ? 'ACTIVE' : body.status === 'Inactive' ? 'INACTIVE' : String(body.status);
+    }
 
     if (isDbConnected()) {
       try {
         await db.staff.update({
           where: { id },
-          data: dbUpdates,
+          data: cleanData,
         });
       } catch (dbErr) {
-        console.error('Failed to update staff in DB:', dbErr);
+        console.error('Failed to update staff in MySQL DB:', dbErr);
       }
     }
 
     const store = useCrudStore.getState();
-    store.updateRecord('staff', id, updates);
+    store.updateRecord('staff', id, { ...updates, ...cleanData, name: cleanData.name || body.name });
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Failed to update staff' }, { status: 500 });

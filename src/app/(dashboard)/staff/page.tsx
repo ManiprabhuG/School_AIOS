@@ -162,15 +162,21 @@ export default function StaffManagementPage() {
   ];
 
   const handleSaveStaff = async (data: Record<string, any>, saveAndNew?: boolean) => {
-    const fullName = `${data.firstName} ${data.lastName}`.trim();
-    const usernameVal = data.username || data.email?.split('@')[0] || data.firstName?.toLowerCase();
+    const fullName = data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Staff Member';
+    const first = data.firstName || fullName.split(' ')[0] || 'Staff';
+    const last = data.lastName || fullName.split(' ')[1] || 'Member';
+    const usernameVal = data.username || data.email?.split('@')[0] || first.toLowerCase();
     const pwdVal = data.password || `${usernameVal}123`;
 
+    const payload = {
+      ...data,
+      firstName: first,
+      lastName: last,
+      name: fullName,
+    };
+
     if (editingStaff) {
-      updateRecord('staff', editingStaff.id, {
-        ...data,
-        name: fullName,
-      });
+      updateRecord('staff', editingStaff.id, payload);
       updateUserAccount(editingStaff.id, {
         name: fullName,
         username: usernameVal,
@@ -180,12 +186,21 @@ export default function StaffManagementPage() {
         phone: data.phone,
         status: data.status,
       });
+
       try {
-        await fetch('/api/staff', {
+        const res = await fetch('/api/staff', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingStaff.id, ...data, name: fullName }),
+          body: JSON.stringify({ id: editingStaff.id, ...payload }),
         });
+        const resJson = await res.json();
+        if (resJson.success) {
+          const freshRes = await fetch('/api/staff', { cache: 'no-store' });
+          const freshData = await freshRes.json();
+          if (freshData.success && Array.isArray(freshData.data)) {
+            useCrudStore.setState({ staff: freshData.data });
+          }
+        }
       } catch (err) {
         console.error('Failed to update staff in database:', err);
       }
@@ -194,8 +209,8 @@ export default function StaffManagementPage() {
       const newStaff: Staff = {
         id: `stf-${Date.now()}`,
         empId: `EMP-${Math.floor(100 + Math.random() * 900)}`,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        firstName: first,
+        lastName: last,
         name: fullName,
         role: data.role as UserRole,
         department: data.department,
@@ -351,9 +366,20 @@ export default function StaffManagementPage() {
               <h3 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" /> Staff HR Dossier & Service Record
               </h3>
-              <button onClick={() => setViewingStaff(null)} className="text-slate-400 hover:text-slate-600">
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setEditingStaff(viewingStaff);
+                    setViewingStaff(null);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all"
+                >
+                  Edit Profile
+                </button>
+                <button onClick={() => setViewingStaff(null)} className="text-slate-400 hover:text-slate-600 p-1">
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
