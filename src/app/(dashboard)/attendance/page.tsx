@@ -25,6 +25,7 @@ export default function AttendancePage() {
   const { activeRole, user } = useAuthStore();
 
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const isExecutive = useMemo(() => {
     return ['Super Admin', 'Admin', 'Principal', 'Vice Principal'].includes(activeRole);
@@ -34,64 +35,153 @@ export default function AttendancePage() {
   const teacherAllocatedClass = useMemo(() => {
     if (isExecutive) return null;
 
-    const matchedStaff =
-      staff.find((s) => {
-        if (user?.id && s.id === user.id) return true;
-        if (user?.email && s.email?.trim().toLowerCase() === user.email.trim().toLowerCase()) return true;
-        if (user?.name && s.name?.trim().toLowerCase() === user.name.trim().toLowerCase()) return true;
-        if (user?.username && (s.empId === user.username || (s as any).employeeId === user.username || s.email?.toLowerCase().includes(user.username.toLowerCase()))) return true;
-        return false;
-      }) || staff.find((s) => s.role === 'Teacher');
+    const uId = (user?.id || '').trim().toLowerCase();
+    const uEmail = (user?.email || '').trim().toLowerCase();
+    const uName = (user?.name || '').trim().toLowerCase();
+    const uUsername = (user?.username || '').trim().toLowerCase();
 
-    const rawClass = matchedStaff?.allocatedClass || (matchedStaff as any)?.assignedClass;
-    if (!rawClass || rawClass === 'None') {
+    const matchedStaff = staff.find((s) => {
+      const sId = (s.id || '').trim().toLowerCase();
+      const sEmail = (s.email || '').trim().toLowerCase();
+      const sName = (s.name || '').trim().toLowerCase();
+      const sUsername = (s.username || s.empId || (s as any).employeeId || '').trim().toLowerCase();
+
+      if (uId && sId === uId) return true;
+      if (uEmail && sEmail === uEmail) return true;
+      if (uName && sName === uName) return true;
+      if (uUsername && (sUsername === uUsername || (sEmail && sEmail.includes(uUsername)))) return true;
+      return false;
+    });
+
+    const directClass = (user as any)?.allocatedClass || (user as any)?.assignedClass;
+    const rawClass = directClass || matchedStaff?.allocatedClass || (matchedStaff as any)?.assignedClass;
+    const teacherName = matchedStaff?.name || user?.name || 'Teacher';
+
+    if (!rawClass || rawClass === 'None' || rawClass === 'null') {
       return {
         full: 'None',
         className: 'None',
         section: 'None',
-        teacherName: matchedStaff?.name || user?.name || 'Teacher',
+        teacherName,
         hasAllocation: false,
       };
     }
 
-    const parts = rawClass.trim().split(' ');
-    const cls = parts[0] || '';
-    const sec = parts[1] || '';
+    const cleanRaw = rawClass.trim();
+    let cls = '';
+    let sec = '';
+
+    if (cleanRaw.includes('-')) {
+      const parts = cleanRaw.split('-');
+      cls = parts[0].trim();
+      sec = parts[1].trim();
+    } else if (cleanRaw.includes(' ')) {
+      const parts = cleanRaw.split(' ');
+      cls = parts[0].trim();
+      sec = parts[1].trim();
+    } else {
+      cls = cleanRaw;
+      sec = 'None';
+    }
 
     return {
       full: rawClass,
       className: cls,
       section: sec,
-      teacherName: matchedStaff?.name || user?.name || 'Class Teacher',
+      teacherName,
       hasAllocation: true,
     };
   }, [isExecutive, staff, user]);
 
   const visibleAttendanceRecords = useMemo(() => {
-    if (isExecutive) return attendanceRecords;
+    const targetDate = selectedDate || new Date().toISOString().split('T')[0];
 
-    if (teacherAllocatedClass && teacherAllocatedClass.hasAllocation) {
-      return attendanceRecords.filter((r) => {
-        if (r.entityType === 'Staff') return false;
+    let targetCls = '';
+    let targetSec = '';
 
-        const targetCls = teacherAllocatedClass.className.toLowerCase();
-        const targetSec = teacherAllocatedClass.section.toLowerCase();
-        const recordCls = (r.className || '').toLowerCase();
-        const recordSec = (r.section || '').toLowerCase();
+    if (!isExecutive) {
+      if (teacherAllocatedClass && teacherAllocatedClass.hasAllocation) {
+        targetCls = teacherAllocatedClass.className.toLowerCase();
+        targetSec = teacherAllocatedClass.section.toLowerCase();
+      } else {
+        return [];
+      }
+    }
 
-        const classMatches = recordCls === targetCls || recordCls.includes(targetCls) || targetCls.includes(recordCls);
-        const sectionMatches = !targetSec || targetSec === 'none' || recordSec === targetSec;
+    // Filter students belonging to the target class and section
+    const matchingStudents = students.filter((s) => {
+      if ((s.status as string) === 'Inactive' || s.status === 'Transferred') return false;
+      if (!targetCls) return true;
 
+      let sCls = (s.className || '').trim().toLowerCase();
+      let sSec = (s.section || '').trim().toLowerCase();
+
+      if (!sSec && sCls.includes('-')) {
+        const parts = sCls.split('-');
+        sCls = parts[0].trim();
+        sSec = parts[1].trim();
+      } else if (!sSec && sCls.includes(' ')) {
+        const parts = sCls.split(' ');
+        sCls = parts[0].trim();
+        sSec = parts[1].trim();
+      }
+
+      const classMatches = sCls === targetCls || sCls.includes(targetCls) || targetCls.includes(sCls);
+      const sectionMatches = !targetSec || targetSec === 'none' || sSec === targetSec;
+
+      return classMatches && sectionMatches;
+    });
+
+    // Map of saved records from DB: key = `${entityId}_${date}` or `${name}_${date}`
+    const dbRecordMap = new Map<string, AttendanceRecord>();
+    attendanceRecords.forEach((rec) => {
+      if (rec.entityId) dbRecordMap.set(`${rec.entityId}_${rec.date}`, rec);
+      if (rec.name && rec.date) dbRecordMap.set(`${rec.name.trim().toLowerCase()}_${rec.date}`, rec);
+    });
+
+    // Build complete student roster for the attendance register
+    const studentRows: AttendanceRecord[] = matchingStudents.map((std) => {
+      const saved =
+        dbRecordMap.get(`${std.id}_${targetDate}`) ||
+        dbRecordMap.get(`${std.name.trim().toLowerCase()}_${targetDate}`);
+
+      if (saved) return saved;
+
+      return {
+        id: `att-std-${std.id}-${targetDate}`,
+        date: targetDate,
+        entityId: std.id,
+        entityType: 'Student',
+        name: std.name,
+        className: std.className || '10th',
+        section: std.section || 'A',
+        status: 'Present',
+        remarks: 'Present in class',
+      };
+    });
+
+    // Extra saved records (e.g. staff attendance or entries not matching student list)
+    const extraRecords = attendanceRecords.filter((rec) => {
+      if (rec.entityType === 'Staff') return isExecutive;
+      if (rec.date !== targetDate) return false;
+
+      const alreadyIncluded = studentRows.some(
+        (sr) => sr.id === rec.id || sr.entityId === rec.entityId || sr.name.trim().toLowerCase() === rec.name.trim().toLowerCase()
+      );
+      if (alreadyIncluded) return false;
+
+      if (targetCls) {
+        const rCls = (rec.className || '').toLowerCase();
+        const rSec = (rec.section || '').toLowerCase();
+        const classMatches = rCls === targetCls || rCls.includes(targetCls) || targetCls.includes(rCls);
+        const sectionMatches = !targetSec || targetSec === 'none' || rSec === targetSec;
         return classMatches && sectionMatches;
-      });
-    }
+      }
+      return true;
+    });
 
-    if (!isExecutive && teacherAllocatedClass && !teacherAllocatedClass.hasAllocation) {
-      return [];
-    }
-
-    return attendanceRecords;
-  }, [attendanceRecords, isExecutive, teacherAllocatedClass]);
+    return [...studentRows, ...extraRecords];
+  }, [attendanceRecords, isExecutive, teacherAllocatedClass, students, selectedDate]);
 
   const parseClassAndSection = (rawClass?: string | null, rawSection?: string | null) => {
     let cls = (rawClass || '').trim();
@@ -110,6 +200,15 @@ export default function AttendancePage() {
   };
 
   React.useEffect(() => {
+    fetch('/api/students', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          useCrudStore.setState({ students: res.data });
+        }
+      })
+      .catch((err) => console.error('Failed to fetch live students:', err));
+
     fetch('/api/staff', { cache: 'no-store' })
       .then((res) => res.json())
       .then((res) => {
@@ -132,37 +231,10 @@ export default function AttendancePage() {
             };
           });
           setAttendanceRecords(normalized);
-        } else {
-          const today = new Date().toISOString().split('T')[0];
-          const stdAtt: AttendanceRecord[] = students.map((s, idx) => ({
-            id: `att-std-${s.id}`,
-            date: today,
-            entityId: s.id,
-            entityType: 'Student',
-            name: s.name,
-            className: s.className || '10th',
-            section: s.section || 'A',
-            status: idx % 4 === 0 ? 'Absent' : idx % 5 === 0 ? 'Late' : 'Present',
-            remarks: idx % 4 === 0 ? 'Parent informed via SMS' : 'Present in class',
-          }));
-          const stfAtt: AttendanceRecord[] = staff.map((st, idx) => ({
-            id: `att-stf-${st.id}`,
-            date: today,
-            entityId: st.id,
-            entityType: 'Staff',
-            staffType: idx % 2 === 0 ? 'Teaching' : 'Non-Teaching',
-            department: st.department || 'Mathematics',
-            name: st.name,
-            className: st.department,
-            section: 'A',
-            status: idx === 1 ? 'Leave' : 'Present',
-            remarks: idx === 1 ? 'Casual Leave Approved' : 'Present in school campus',
-          }));
-          setAttendanceRecords([...stdAtt, ...stfAtt]);
         }
       })
       .catch((err) => console.error('Failed to load attendance from DB:', err));
-  }, [students, staff]);
+  }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingAtt, setEditingAtt] = useState<AttendanceRecord | null>(null);
@@ -511,30 +583,54 @@ export default function AttendancePage() {
           </div>
         </div>
 
-        {/* View Switcher Toggle */}
-        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
-          <button
-            onClick={() => setViewMode('table')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
-              viewMode === 'table'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <TableIcon className="w-4 h-4" /> Table Register
-          </button>
-          <button
-            onClick={() => setViewMode('calendar')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
-              viewMode === 'calendar'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <CalendarIcon className="w-4 h-4" /> Interactive Calendar View
-          </button>
+        {/* View Switcher Toggle & Date Selector */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <span className="text-xs font-bold text-slate-500">Date:</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-transparent text-xs font-extrabold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+                viewMode === 'table'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <TableIcon className="w-4 h-4" /> Table Register
+            </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+                viewMode === 'calendar'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <CalendarIcon className="w-4 h-4" /> Interactive Calendar View
+            </button>
+          </div>
         </div>
       </div>
+
+      {!isExecutive && teacherAllocatedClass && !teacherAllocatedClass.hasAllocation && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 flex items-center gap-3">
+          <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div>
+            <h4 className="text-sm font-extrabold text-amber-900 dark:text-amber-200">No Class Allocated</h4>
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              No class is currently allocated to your teacher account ({teacherAllocatedClass.teacherName}). Please ask an Administrator to assign your class in the Staff Allocation Matrix.
+            </p>
+          </div>
+        </div>
+      )}
 
       {viewMode === 'table' ? (
         <DataTable

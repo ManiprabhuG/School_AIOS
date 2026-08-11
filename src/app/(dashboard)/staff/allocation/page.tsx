@@ -90,10 +90,14 @@ export default function StaffAllocationPage() {
           nextAlloc[stf.id] = { className: 'None', section: 'None' };
         } else if (!nextAlloc[stf.id]) {
           const rawClass = stf.allocatedClass || (stf as any).assignedClass || '';
-          const parts = rawClass ? rawClass.split(' ') : [];
-          const cls = parts[0] || '10th';
-          const sec = parts[1] || 'A';
-          nextAlloc[stf.id] = { className: cls, section: sec };
+          if (!rawClass || rawClass === 'None') {
+            nextAlloc[stf.id] = { className: 'None', section: 'None' };
+          } else {
+            const parts = rawClass.split(' ');
+            const cls = parts[0] || 'None';
+            const sec = parts[1] || 'None';
+            nextAlloc[stf.id] = { className: cls, section: sec };
+          }
         }
       });
       return nextAlloc;

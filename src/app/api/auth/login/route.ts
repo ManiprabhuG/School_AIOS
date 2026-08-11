@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { db, isDbConnected } from '@/lib/db';
 import { useAuthStore } from '@/store/auth-store';
 import { initialRolePermissions, useCrudStore } from '@/store/crud-store';
 import { User, UserRole, LoginAuditRecord, RolePermission } from '@/types';
@@ -103,6 +104,8 @@ export async function POST(request: Request) {
       passwordHash: s.password || s.passwordHash || `${s.username || s.firstName?.toLowerCase() || 'teacher'}123`,
       isLocked: Boolean(s.isLocked),
       failedAttempts: s.failedAttempts || 0,
+      allocatedClass: s.allocatedClass || s.assignedClass || null,
+      assignedClass: s.assignedClass || s.allocatedClass || null,
     }));
 
     const allUsers = [...authUsers, ...crudAdmins, ...crudStaff];
@@ -233,6 +236,42 @@ export async function POST(request: Request) {
       message: `User ${targetUser.username} logged in successfully as ${targetUser.role}`,
     });
 
+    let userAllocatedClass: string | null = (targetUser as any)?.allocatedClass || (targetUser as any)?.assignedClass || null;
+
+    if (!userAllocatedClass && isDbConnected()) {
+      try {
+        const orConditions = [
+          targetUser.id ? { id: targetUser.id } : null,
+          targetUser.email ? { email: targetUser.email } : null,
+          targetUser.username ? { username: targetUser.username } : null,
+          targetUser.name ? { name: targetUser.name } : null,
+        ].filter(Boolean) as any[];
+
+        if (orConditions.length > 0) {
+          const dbStaffMatch = await db.staff.findFirst({
+            where: { OR: orConditions },
+          });
+          if (dbStaffMatch?.assignedClass) {
+            userAllocatedClass = dbStaffMatch.assignedClass;
+          }
+        }
+      } catch (e) {
+        // Ignore DB query errors
+      }
+    }
+
+    if (!userAllocatedClass && rawStaff && rawStaff.length > 0) {
+      const storeStaffMatch = rawStaff.find((s: any) =>
+        (targetUser.id && s.id === targetUser.id) ||
+        (targetUser.email && s.email?.trim().toLowerCase() === targetUser.email.trim().toLowerCase()) ||
+        (targetUser.username && (s.username === targetUser.username || s.employeeId === targetUser.username)) ||
+        (targetUser.name && s.name?.trim().toLowerCase() === targetUser.name.trim().toLowerCase())
+      );
+      if (storeStaffMatch) {
+        userAllocatedClass = storeStaffMatch.allocatedClass || storeStaffMatch.assignedClass || null;
+      }
+    }
+
     authStore.loginWithCredentials(cleanIdentifier, password, rememberMe);
 
     return NextResponse.json({
@@ -247,6 +286,8 @@ export async function POST(request: Request) {
         phone: targetUser.phone,
         status: targetUser.status,
         lastLogin: nowStr,
+        allocatedClass: userAllocatedClass,
+        assignedClass: userAllocatedClass,
       },
       token,
       permissions: permissionsMatrix,

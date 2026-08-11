@@ -104,6 +104,8 @@ export const useAuthStore = create<AuthState>()(
           passwordHash: s.password || s.passwordHash || `${s.username || s.firstName?.toLowerCase() || 'teacher'}123`,
           isLocked: Boolean(s.isLocked),
           failedAttempts: s.failedAttempts || 0,
+          allocatedClass: s.allocatedClass || s.assignedClass || null,
+          assignedClass: s.assignedClass || s.allocatedClass || null,
         }));
 
         const combinedUsers = [...authUsers, ...crudAdmins, ...crudStaff];
@@ -298,14 +300,22 @@ export const useAuthStore = create<AuthState>()(
 
       setUserSession: (userData, tokenStr) => {
         const token = tokenStr || `jwt-token-${userData.id}-${Date.now()}`;
+        const allocated = (userData as any).allocatedClass || (userData as any).assignedClass || null;
         set((state) => ({
-          user: { ...userData, lastLogin: new Date().toLocaleString(), failedAttempts: 0, isLocked: false },
+          user: {
+            ...userData,
+            allocatedClass: allocated,
+            assignedClass: allocated,
+            lastLogin: new Date().toLocaleString(),
+            failedAttempts: 0,
+            isLocked: false,
+          },
           token: token,
           isAuthenticated: true,
           activeRole: userData.role,
           users: state.users.some((u) => u.id === userData.id)
-            ? state.users.map((u) => (u.id === userData.id ? { ...u, ...userData } : u))
-            : [userData, ...state.users],
+            ? state.users.map((u) => (u.id === userData.id ? { ...u, ...userData, allocatedClass: allocated, assignedClass: allocated } : u))
+            : [{ ...userData, allocatedClass: allocated, assignedClass: allocated }, ...state.users],
         }));
       },
 

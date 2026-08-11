@@ -8,170 +8,9 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     if (isDbConnected()) {
-      let dbStaff = await db.staff.findMany({
+      const dbStaff = await db.staff.findMany({
         orderBy: { createdAt: 'desc' },
       });
-
-      if (dbStaff.length === 0) {
-        const seedStaff = [
-          {
-            id: 'stf-101',
-            employeeId: 'EMP-2026-101',
-            firstName: 'Abi',
-            lastName: 'Sundar',
-            name: 'Abi Sundar',
-            role: 'Teacher',
-            designation: 'Senior PGT Mathematics Teacher',
-            department: 'Mathematics',
-            email: 'abi@absschool.edu.in',
-            phone: '9876543210',
-            qualification: 'M.Sc., B.Ed',
-            salary: 52000,
-            joiningDate: '2022-06-01',
-            gender: 'Female',
-            address: 'Model Town, Central Block',
-            assignedClass: '10th A',
-            subjectSpecial: 'Mathematics, Algebra',
-            username: 'abi',
-            password: 'abi123',
-            status: 'ACTIVE',
-          },
-          {
-            id: 'stf-102',
-            employeeId: 'EMP-2026-102',
-            firstName: 'Rajesh',
-            lastName: 'Kumar',
-            name: 'Rajesh Kumar',
-            role: 'Teacher',
-            designation: 'Senior Physics Faculty',
-            department: 'Science',
-            email: 'rajesh@absschool.edu.in',
-            phone: '9876543211',
-            qualification: 'M.Sc Physics, B.Ed',
-            salary: 48000,
-            joiningDate: '2023-01-15',
-            gender: 'Male',
-            address: 'South Extension, Park View',
-            assignedClass: '9th B',
-            subjectSpecial: 'Physics, General Science',
-            username: 'rajesh',
-            password: 'rajesh123',
-            status: 'ACTIVE',
-          },
-          {
-            id: 'stf-103',
-            employeeId: 'EMP-2026-103',
-            firstName: 'Kavitha',
-            lastName: 'Raman',
-            name: 'Kavitha Raman',
-            role: 'Teacher',
-            designation: 'Senior Chemistry Faculty',
-            department: 'Science',
-            email: 'kavitha@absschool.edu.in',
-            phone: '9876543212',
-            qualification: 'M.Sc Chemistry, M.Ed',
-            salary: 50000,
-            joiningDate: '2021-08-10',
-            gender: 'Female',
-            address: 'Green Avenue, Block C',
-            assignedClass: '12th C',
-            subjectSpecial: 'Chemistry, Organic Science',
-            username: 'kavitha',
-            password: 'kavitha123',
-            status: 'ACTIVE',
-          },
-          {
-            id: 'stf-104',
-            employeeId: 'EMP-2026-104',
-            firstName: 'Dr. Ramesh',
-            lastName: 'Sharma',
-            name: 'Dr. Ramesh Sharma',
-            role: 'Principal',
-            designation: 'School Principal & Academic Director',
-            department: 'Administration',
-            email: 'principal@absschool.edu.in',
-            phone: '9876543200',
-            qualification: 'Ph.D., M.Ed',
-            salary: 95000,
-            joiningDate: '2018-04-01',
-            gender: 'Male',
-            address: 'Campus Officers Colony',
-            assignedClass: 'None',
-            subjectSpecial: 'School Administration',
-            username: 'principal',
-            password: 'principal123',
-            status: 'ACTIVE',
-          },
-          {
-            id: 'stf-105',
-            employeeId: 'EMP-2026-105',
-            firstName: 'Priya',
-            lastName: 'Verma',
-            name: 'Priya Verma',
-            role: 'Vice Principal',
-            designation: 'Vice Principal & Head of Curriculum',
-            department: 'Academics',
-            email: 'vice@absschool.edu.in',
-            phone: '9876543201',
-            qualification: 'M.A. English, B.Ed',
-            salary: 75000,
-            joiningDate: '2019-07-15',
-            gender: 'Female',
-            address: 'Civil Lines, House #45',
-            assignedClass: 'None',
-            subjectSpecial: 'English Literature',
-            username: 'vice',
-            password: 'vice123',
-            status: 'ACTIVE',
-          },
-          {
-            id: 'stf-106',
-            employeeId: 'EMP-2026-106',
-            firstName: 'Suresh',
-            lastName: 'Mehta',
-            name: 'Suresh Mehta',
-            role: 'Accountant',
-            designation: 'Chief Accountant',
-            department: 'Administration',
-            email: 'accountant@absschool.edu.in',
-            phone: '9876543202',
-            qualification: 'M.Com, CA Inter',
-            salary: 55000,
-            joiningDate: '2020-11-01',
-            gender: 'Male',
-            address: 'Market Complex, Flat 202',
-            assignedClass: 'None',
-            subjectSpecial: 'Fee Collections & Accounting',
-            username: 'accountant',
-            password: 'accountant123',
-            status: 'ACTIVE',
-          },
-        ];
-
-        try {
-          await db.staff.createMany({ data: seedStaff as any, skipDuplicates: true });
-          for (const s of seedStaff) {
-            await db.user.upsert({
-              where: { email: s.email },
-              update: { username: s.username, passwordHash: s.password, role: s.role as any },
-              create: {
-                id: s.id,
-                username: s.username,
-                name: s.name,
-                email: s.email,
-                passwordHash: s.password,
-                role: s.role as any,
-                phone: s.phone,
-                status: 'ACTIVE',
-              },
-            });
-          }
-        } catch (sErr) {
-          console.error('Failed to seed default staff to DB:', sErr);
-        }
-
-        dbStaff = await db.staff.findMany({ orderBy: { createdAt: 'desc' } });
-      }
 
       const mappedStaff = dbStaff.map((s) => ({
         ...s,
@@ -179,7 +18,7 @@ export async function GET() {
         username: s.username || s.email?.split('@')[0] || s.employeeId || 'staff',
         password: s.password || `${s.username || s.email?.split('@')[0] || 'staff'}123`,
         status: s.status === 'ACTIVE' ? 'Active' : s.status === 'INACTIVE' ? 'Inactive' : s.status,
-        allocatedClass: s.assignedClass || (s as any).allocatedClass || '10th A',
+        allocatedClass: s.assignedClass || (s as any).allocatedClass || null,
         subjects: s.subjectSpecial ? s.subjectSpecial.split(',').map((item) => item.trim()) : (s as any).subjects || [],
       }));
 
@@ -260,7 +99,7 @@ export async function POST(request: Request) {
         username: created.username || usernameVal,
         password: created.password || pwdVal,
         status: created.status === 'ACTIVE' ? 'Active' : 'Inactive',
-        allocatedClass: created.assignedClass || '10th A',
+        allocatedClass: created.assignedClass || null,
         subjects: created.subjectSpecial ? created.subjectSpecial.split(',').map((i) => i.trim()) : [],
       };
 

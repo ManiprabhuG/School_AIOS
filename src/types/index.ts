@@ -35,6 +35,8 @@ export interface User extends BaseAuditEntity {
   failedAttempts?: number;
   isLocked?: boolean;
   lockedUntil?: string;
+  allocatedClass?: string;
+  assignedClass?: string;
 }
 
 export interface LoginAuditRecord {
