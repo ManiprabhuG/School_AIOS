@@ -19,7 +19,7 @@ export const modulePermissions: Record<string, UserRole[]> = {
   '/finance': ['Super Admin', 'Principal', 'Accountant', 'Admin'],
   '/bus': ['Super Admin', 'Admin', 'Transport Manager', 'Parent', 'Student'],
   '/announcements': ['Super Admin', 'Principal', 'Vice Principal', 'Admin', 'Teacher', 'HR', 'Receptionist', 'Librarian', 'Transport Manager', 'Inventory Manager', 'Parent', 'Student'],
-  '/reports': ['Super Admin', 'Principal', 'Vice Principal', 'Admin', 'Accountant', 'HR', 'Inventory Manager', 'Transport Manager'],
+  '/reports': ['Super Admin', 'Principal', 'Vice Principal', 'Admin', 'Accountant', 'HR', 'Inventory Manager', 'Transport Manager', 'Teacher'],
   '/notifications': ['Super Admin', 'Principal', 'Vice Principal', 'Admin', 'Accountant', 'Teacher', 'HR', 'Receptionist', 'Librarian', 'Transport Manager', 'Inventory Manager', 'Parent', 'Student'],
   '/settings': ['Super Admin', 'Admin', 'Principal'],
   '/admin': ['Super Admin', 'Admin'],
